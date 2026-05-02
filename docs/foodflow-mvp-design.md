@@ -66,6 +66,7 @@ backend/
         routes.py
       usuarios/
       categorias/
+      unidades/
       insumos/
       produtos/
       estoque/
@@ -232,10 +233,21 @@ Conversoes automaticas:
 - 1 kg = 1000 g;
 - 1 L = 1000 ml.
 
-Conversoes configuraveis:
+Conversoes configuraveis globais:
 
-- exemplo: 1 pacote de farinha = 5 kg;
-- exemplo: 1 caixa = 12 unidades.
+- devem ser usadas apenas quando a equivalencia for geral para o estabelecimento;
+- exemplo: 1 duzia = 12 unidades.
+
+Conversoes de compra por insumo:
+
+- embalagens como pacote, caixa, fardo, bandeja, pote e garrafa podem representar quantidades diferentes dependendo do insumo;
+- por isso, conversoes de compra devem poder ser cadastradas por insumo como padrao sugerido;
+- a entrada de estoque deve permitir informar a equivalencia real daquela compra, quando ela for diferente do padrao;
+- exemplo: para salsicha, o padrao pode ser 1 pacote = 12 unidades, mas uma compra especifica pode vir com 10 unidades;
+- exemplo: para massa de pastel, o padrao pode ser 1 pacote = 400 g, mas uma compra especifica pode vir com 500 g;
+- exemplo: para pao de hamburguer, o padrao pode ser 1 pacote = 6 unidades, mas pode variar por fornecedor;
+- ao registrar uma entrada de estoque usando a unidade de compra, o sistema deve converter automaticamente para a unidade base de estoque do insumo.
+- quantidades usadas na ficha tecnica, como 30 g de massa por pastel, devem ser definidas por produto/ficha tecnica, nao como regra fixa do insumo.
 
 ## 10. Estoque
 
@@ -635,6 +647,7 @@ Entregas:
 - conversoes de unidade;
 - insumos;
 - estoque inicial por insumo.
+- conversoes de compra por insumo.
 
 Criterios de aceite:
 
@@ -642,6 +655,8 @@ Criterios de aceite:
 - conversoes automaticas de kg/g e L/ml funcionam;
 - conversoes configuraveis podem ser cadastradas;
 - insumo possui unidade, custo e estoque controlavel.
+- entradas de estoque podem usar unidade de compra especifica do insumo, com conversao automatica para a unidade base.
+- entradas de estoque podem informar a equivalencia real da compra quando a embalagem vier com quantidade diferente do padrao.
 
 ### Bloco 4 - Produtos, ficha tecnica e disponibilidade
 

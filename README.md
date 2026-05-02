@@ -54,3 +54,18 @@ npm run dev
 - `GET /api/auth/me`: retorna o usuario autenticado.
 - `POST /api/usuarios`: cria usuario, restrito a `OWNER`.
 - `GET /api/usuarios`: lista usuarios, restrito a `OWNER` e `MANAGER`.
+
+## Cadastros operacionais base
+
+- `POST /api/categorias`: cria categoria.
+- `GET /api/categorias`: lista categorias.
+- `POST /api/unidades-medida`: cria unidade personalizada.
+- `GET /api/unidades-medida`: lista unidades padrao e personalizadas.
+- `POST /api/conversoes-unidade`: cria conversao configuravel.
+- `GET /api/conversoes-unidade`: lista conversoes automaticas e configuraveis.
+- `POST /api/insumos`: cria insumo com custo, unidade e estoque inicial.
+- `GET /api/insumos`: lista insumos.
+- `POST /api/insumos/{insumo_id}/conversoes-compra`: cria conversao de compra especifica do insumo.
+- `GET /api/insumos/{insumo_id}/conversoes-compra`: lista conversoes de compra do insumo.
+- `POST /api/estoque/entradas`: registra entrada de estoque, convertendo unidade de compra para unidade base. Aceita equivalencia real da compra quando a embalagem variar.
+- `GET /api/estoque/movimentacoes`: lista movimentacoes de estoque.

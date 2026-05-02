@@ -31,6 +31,18 @@ API:
 - `GET /api/auth/me`
 - `POST /api/usuarios`
 - `GET /api/usuarios`
+- `POST /api/categorias`
+- `GET /api/categorias`
+- `POST /api/unidades-medida`
+- `GET /api/unidades-medida`
+- `POST /api/conversoes-unidade`
+- `GET /api/conversoes-unidade`
+- `POST /api/insumos`
+- `GET /api/insumos`
+- `POST /api/insumos/{insumo_id}/conversoes-compra`
+- `GET /api/insumos/{insumo_id}/conversoes-compra`
+- `POST /api/estoque/entradas`
+- `GET /api/estoque/movimentacoes`
 
 ## Fluxo inicial de autenticacao
 
@@ -38,3 +50,34 @@ API:
 2. Faca login em `POST /api/auth/login`.
 3. Use o `access_token` no header `Authorization: Bearer <token>`.
 4. Crie outros usuarios em `POST /api/usuarios` usando um usuario `OWNER`.
+
+## Cadastros base
+
+Os cadastros de categorias, unidades, conversoes e insumos exigem token de usuario `OWNER` ou `MANAGER`.
+
+Ao iniciar, o backend cria as unidades padrao e as conversoes automaticas:
+
+- `1 kg = 1000 g`
+- `1 L = 1000 ml`
+
+Ao criar um insumo com `estoque_inicial` maior que zero, o sistema registra uma movimentacao de estoque do tipo `ENTRADA`.
+
+Conversoes de compra como pacote, caixa, bandeja e fardo devem ser cadastradas por insumo. Exemplos:
+
+- salsicha: `1 pacote = 12 unidades`;
+- massa de pastel: `1 pacote = 400 g`;
+- pao de hamburguer: `1 pacote = 6 unidades`.
+
+Ao registrar entrada em `POST /api/estoque/entradas`, se a unidade informada for uma unidade de compra do insumo, o sistema converte a quantidade para a unidade base antes de atualizar o estoque. Se a embalagem daquela compra vier com quantidade diferente do padrao, envie `quantidade_equivalente_informada`.
+
+Exemplo:
+
+```json
+{
+  "insumo_id": 1,
+  "quantidade": 2,
+  "unidade_compra_id": 6,
+  "quantidade_equivalente_informada": 10,
+  "motivo": "Compra de 2 pacotes com 10 unidades cada"
+}
+```

@@ -23,6 +23,16 @@ def criar_banco() -> None:
     Base.metadata.create_all(bind=engine)
 
 
+def criar_dados_iniciais() -> None:
+    from app.database.seed import criar_dados_iniciais as executar_seed
+
+    sessao = SessionLocal()
+    try:
+        executar_seed(sessao)
+    finally:
+        sessao.close()
+
+
 def obter_sessao() -> Generator[Session, None, None]:
     sessao = SessionLocal()
     try:
