@@ -1,0 +1,1291 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="FoodFlow Gestão: especificação visual do MVP com PDV, estoque, dashboard e Programação Linear.">
+  <title>FoodFlow Gestão | MVP</title>
+  <style>
+    :root {
+      --bg: #fbfaf7;
+      --surface: #ffffff;
+      --surface-2: #f4f7f5;
+      --text: #17211d;
+      --muted: #64716c;
+      --line: #dce5df;
+      --green: #16865b;
+      --green-2: #0e5f43;
+      --mint: #dff5ea;
+      --yellow: #ffbf3f;
+      --red: #d84f3d;
+      --blue: #2563eb;
+      --ink: #101816;
+      --shadow: 0 18px 48px rgba(23, 33, 29, .12);
+      --soft-shadow: 0 10px 26px rgba(23, 33, 29, .08);
+      --radius: 8px;
+      --max: 1180px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background:
+        linear-gradient(180deg, rgba(223, 245, 234, .5) 0, rgba(251, 250, 247, 0) 340px),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(251, 250, 247, .9);
+      border-bottom: 1px solid rgba(220, 229, 223, .9);
+      backdrop-filter: blur(16px);
+    }
+
+    .nav {
+      width: min(var(--max), calc(100% - 32px));
+      margin: 0 auto;
+      min-height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      min-width: max-content;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: var(--green);
+      color: white;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 8px 18px rgba(22, 134, 91, .28);
+      font-weight: 900;
+    }
+
+    .brand span:last-child {
+      font-size: 1.02rem;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .nav-links a {
+      color: var(--muted);
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: .92rem;
+      font-weight: 650;
+    }
+
+    .nav-links a:hover,
+    .nav-links a.active {
+      color: var(--green-2);
+      background: var(--mint);
+    }
+
+    .menu-toggle {
+      display: none;
+      width: 42px;
+      height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .menu-toggle span {
+      display: block;
+      width: 18px;
+      height: 2px;
+      background: currentColor;
+      margin: 4px auto;
+      border-radius: 999px;
+    }
+
+    .hero {
+      width: min(var(--max), calc(100% - 32px));
+      margin: 0 auto;
+      padding: 70px 0 40px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(340px, .95fr);
+      gap: 42px;
+      align-items: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--green-2);
+      background: var(--mint);
+      border: 1px solid rgba(22, 134, 91, .16);
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-weight: 750;
+      font-size: .86rem;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--green);
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.08;
+      letter-spacing: 0;
+      margin: 0;
+      color: var(--ink);
+    }
+
+    h1 {
+      max-width: 760px;
+      margin-top: 18px;
+      font-size: clamp(2.55rem, 7vw, 5.7rem);
+    }
+
+    .hero-copy {
+      max-width: 680px;
+      margin: 22px 0 0;
+      color: var(--muted);
+      font-size: clamp(1.04rem, 2vw, 1.2rem);
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 30px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      border-radius: 8px;
+      padding: 0 16px;
+      border: 1px solid transparent;
+      font-weight: 760;
+      cursor: pointer;
+    }
+
+    .btn.primary {
+      background: var(--green);
+      color: white;
+      box-shadow: 0 12px 26px rgba(22, 134, 91, .24);
+    }
+
+    .btn.secondary {
+      background: var(--surface);
+      color: var(--green-2);
+      border-color: var(--line);
+    }
+
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 30px;
+      max-width: 620px;
+    }
+
+    .stat {
+      background: rgba(255, 255, 255, .78);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 1.2rem;
+      color: var(--ink);
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: .86rem;
+      margin-top: 2px;
+    }
+
+    .product-visual {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .visual-top {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .window-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .window-dots span {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--line);
+    }
+
+    .window-dots span:nth-child(1) { background: var(--red); }
+    .window-dots span:nth-child(2) { background: var(--yellow); }
+    .window-dots span:nth-child(3) { background: var(--green); }
+
+    .visual-title {
+      color: var(--muted);
+      font-size: .85rem;
+      font-weight: 740;
+    }
+
+    .visual-body {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+      background:
+        linear-gradient(90deg, rgba(22, 134, 91, .06), transparent),
+        var(--surface);
+    }
+
+    .dashboard-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .mini-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fff;
+    }
+
+    .mini-card .label {
+      color: var(--muted);
+      font-size: .78rem;
+      font-weight: 700;
+    }
+
+    .mini-card .value {
+      margin-top: 4px;
+      font-weight: 850;
+      font-size: 1.12rem;
+      color: var(--ink);
+    }
+
+    .pdv-preview {
+      display: grid;
+      grid-template-columns: 1fr 150px;
+      gap: 12px;
+    }
+
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .product-button {
+      min-height: 82px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .product-button strong {
+      font-size: .9rem;
+      line-height: 1.2;
+    }
+
+    .product-button span {
+      color: var(--green-2);
+      font-weight: 800;
+      font-size: .9rem;
+    }
+
+    .product-button.blocked {
+      background: #f5f1ee;
+      color: #85766d;
+    }
+
+    .product-button.blocked span {
+      color: var(--red);
+    }
+
+    .cart {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 12px;
+      display: grid;
+      align-content: space-between;
+      gap: 12px;
+    }
+
+    .cart h3 {
+      font-size: .9rem;
+    }
+
+    .cart-line {
+      height: 8px;
+      background: var(--surface-2);
+      border-radius: 999px;
+    }
+
+    .cart-total {
+      background: var(--green);
+      color: #fff;
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+      font-weight: 850;
+    }
+
+    main {
+      width: min(var(--max), calc(100% - 32px));
+      margin: 0 auto;
+      padding-bottom: 70px;
+    }
+
+    section {
+      scroll-margin-top: 92px;
+      padding: 46px 0;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 22px;
+    }
+
+    .section-head h2 {
+      font-size: clamp(1.75rem, 3vw, 2.6rem);
+    }
+
+    .section-head p {
+      max-width: 560px;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .grid.cols-3 {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .grid.cols-2 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .card h3 {
+      font-size: 1.05rem;
+      margin-bottom: 9px;
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      border-radius: 999px;
+      padding: 0 10px;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: .86rem;
+      font-weight: 700;
+    }
+
+    .tag.good {
+      background: var(--mint);
+      color: var(--green-2);
+      border-color: rgba(22, 134, 91, .16);
+    }
+
+    .architecture {
+      display: grid;
+      grid-template-columns: .95fr 1.05fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .layer-stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .layer {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--green);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .layer strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .layer span {
+      color: var(--muted);
+      font-size: .93rem;
+    }
+
+    .code-panel {
+      background: #111816;
+      color: #e9f4ee;
+      border-radius: 8px;
+      padding: 18px;
+      overflow: auto;
+      min-height: 100%;
+      box-shadow: var(--shadow);
+    }
+
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+      font-size: .9rem;
+      line-height: 1.55;
+    }
+
+    .flow {
+      counter-reset: step;
+      display: grid;
+      gap: 12px;
+    }
+
+    .flow-step {
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      gap: 14px;
+      align-items: start;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .flow-step::before {
+      counter-increment: step;
+      content: counter(step);
+      width: 42px;
+      height: 42px;
+      border-radius: 8px;
+      background: var(--green);
+      color: white;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+    }
+
+    .flow-step strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .flow-step span {
+      color: var(--muted);
+    }
+
+    .formula-board {
+      background: #111816;
+      color: #f4fff9;
+      border-radius: 8px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 18px;
+    }
+
+    .formula {
+      border: 1px solid rgba(255, 255, 255, .14);
+      background: rgba(255, 255, 255, .05);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .formula span {
+      display: block;
+      color: #a7c7b8;
+      font-weight: 750;
+      margin-bottom: 6px;
+      font-size: .86rem;
+    }
+
+    .formula code {
+      color: #fff6d7;
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: .95rem;
+    }
+
+    .recommendation-panel {
+      display: grid;
+      grid-template-columns: .9fr 1.1fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .score-card {
+      background: var(--green);
+      color: white;
+      border-radius: 8px;
+      padding: 24px;
+      display: grid;
+      align-content: space-between;
+      min-height: 280px;
+      box-shadow: 0 18px 40px rgba(22, 134, 91, .26);
+    }
+
+    .score-card h3 {
+      color: white;
+      font-size: 1.25rem;
+    }
+
+    .score {
+      font-size: clamp(3.2rem, 10vw, 6rem);
+      line-height: 1;
+      font-weight: 900;
+      margin: 18px 0 10px;
+    }
+
+    .score-card p {
+      color: rgba(255, 255, 255, .84);
+      margin: 0;
+    }
+
+    .bar-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .bar-row {
+      display: grid;
+      gap: 6px;
+    }
+
+    .bar-row label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-weight: 750;
+      font-size: .9rem;
+    }
+
+    .bar {
+      height: 10px;
+      background: var(--surface-2);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar i {
+      display: block;
+      height: 100%;
+      background: var(--green);
+      border-radius: inherit;
+    }
+
+    .decision-list {
+      columns: 2;
+      column-gap: 22px;
+      padding-left: 20px;
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .decision-list li {
+      break-inside: avoid;
+      margin: 0 0 8px;
+    }
+
+    .scope-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .scope-card {
+      border-radius: var(--radius);
+      padding: 20px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+    }
+
+    .scope-card.in {
+      border-top: 5px solid var(--green);
+    }
+
+    .scope-card.out {
+      border-top: 5px solid var(--red);
+    }
+
+    .scope-card ul {
+      margin: 12px 0 0;
+      padding-left: 20px;
+      color: var(--muted);
+    }
+
+    .footer {
+      background: #111816;
+      color: white;
+      padding: 34px 0;
+    }
+
+    .footer-inner {
+      width: min(var(--max), calc(100% - 32px));
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .footer p {
+      margin: 0;
+      color: #afbeb7;
+    }
+
+    @media (max-width: 920px) {
+      .nav {
+        min-height: 62px;
+      }
+
+      .menu-toggle {
+        display: inline-block;
+      }
+
+      .nav-links {
+        position: absolute;
+        left: 16px;
+        right: 16px;
+        top: 62px;
+        display: none;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px;
+        box-shadow: var(--shadow);
+      }
+
+      .nav-links.open {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .hero,
+      .architecture,
+      .recommendation-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        padding-top: 48px;
+      }
+
+      .grid.cols-3,
+      .grid.cols-2,
+      .scope-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .section-head {
+        display: grid;
+      }
+
+      .decision-list {
+        columns: 1;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .hero-stats,
+      .dashboard-strip,
+      .pdv-preview {
+        grid-template-columns: 1fr;
+      }
+
+      .product-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .nav-links.open {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-actions .btn {
+        width: 100%;
+      }
+
+      section {
+        padding: 34px 0;
+      }
+    }
+
+    @media print {
+      .topbar,
+      .hero-actions,
+      .footer {
+        display: none;
+      }
+
+      body {
+        background: white;
+      }
+
+      section {
+        break-inside: avoid;
+        padding: 24px 0;
+      }
+
+      .card,
+      .layer,
+      .flow-step,
+      .product-visual {
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <nav class="nav" aria-label="Navegação principal">
+      <a class="brand" href="#inicio" aria-label="FoodFlow Gestão">
+        <span class="brand-mark">F</span>
+        <span>FoodFlow Gestão</span>
+      </a>
+      <button class="menu-toggle" type="button" aria-label="Abrir menu" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <div class="nav-links" id="navLinks">
+        <a href="#visao">Visão</a>
+        <a href="#arquitetura">Arquitetura</a>
+        <a href="#dominio">Domínio</a>
+        <a href="#pdv">PDV</a>
+        <a href="#simplex">Programação Linear</a>
+        <a href="#decisoes">Decisões</a>
+      </div>
+    </nav>
+  </header>
+
+  <section class="hero" id="inicio">
+    <div>
+      <span class="eyebrow">MVP funcional para negócios alimentícios</span>
+      <h1>Gestão matemática para vender, controlar estoque e recomendar produção.</h1>
+      <p class="hero-copy">
+        O FoodFlow Gestão une PDV web responsivo, ficha técnica, estoque, promoções, dashboard e Programação Linear para reduzir decisões no escuro em hamburguerias, pastelarias e lanchonetes.
+      </p>
+      <div class="hero-actions">
+        <a class="btn primary" href="#simplex">Ver motor de recomendação</a>
+        <a class="btn secondary" href="#arquitetura">Explorar arquitetura</a>
+      </div>
+      <div class="hero-stats" aria-label="Resumo do MVP">
+        <div class="stat">
+          <strong>FastAPI</strong>
+          <span>Backend em Clean Architecture</span>
+        </div>
+        <div class="stat">
+          <strong>SQLite</strong>
+          <span>Banco local com backup automático</span>
+        </div>
+        <div class="stat">
+          <strong>React</strong>
+          <span>Painel gerencial e PDV adaptável</span>
+        </div>
+      </div>
+    </div>
+
+    <aside class="product-visual" aria-label="Prévia visual do FoodFlow">
+      <div class="visual-top">
+        <div class="window-dots" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <span class="visual-title">Dashboard + PDV</span>
+      </div>
+      <div class="visual-body">
+        <div class="dashboard-strip">
+          <div class="mini-card">
+            <span class="label">Faturamento</span>
+            <div class="value">R$ 2.840</div>
+          </div>
+          <div class="mini-card">
+            <span class="label">Fator</span>
+            <div class="value">8.5/10</div>
+          </div>
+          <div class="mini-card">
+            <span class="label">Alertas</span>
+            <div class="value">4</div>
+          </div>
+        </div>
+        <div class="pdv-preview">
+          <div class="product-grid">
+            <div class="product-button">
+              <strong>X-Burger</strong>
+              <span>R$ 22,90</span>
+            </div>
+            <div class="product-button">
+              <strong>Pastel Carne</strong>
+              <span>R$ 12,00</span>
+            </div>
+            <div class="product-button">
+              <strong>Batata Média</strong>
+              <span>R$ 14,90</span>
+            </div>
+            <div class="product-button blocked">
+              <strong>X-Bacon</strong>
+              <span>Bloqueado</span>
+            </div>
+          </div>
+          <div class="cart">
+            <h3>Pedido 20260429-001</h3>
+            <div class="cart-line"></div>
+            <div class="cart-line"></div>
+            <div class="cart-line"></div>
+            <div class="cart-total">Finalizar</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <main>
+    <section id="visao">
+      <div class="section-head">
+        <h2>Visão Do MVP</h2>
+        <p>O primeiro recorte entrega operação real: vender, controlar insumos, aplicar regras e gerar recomendações com base matemática.</p>
+      </div>
+      <div class="grid cols-3">
+        <article class="card">
+          <h3>Problema</h3>
+          <p>Pequenos negócios alimentícios sofrem com estoque cego, preço sem margem clara e produção guiada por intuição.</p>
+        </article>
+        <article class="card">
+          <h3>Solução</h3>
+          <p>Um sistema web com PDV, ficha técnica, estoque, dashboard e recomendação de produção usando Programação Linear.</p>
+        </article>
+        <article class="card">
+          <h3>Escopo</h3>
+          <p>Um estabelecimento, sem SaaS real, sem cobrança, sem multi-tenant e com foco em apresentação acadêmica funcional.</p>
+        </article>
+      </div>
+      <div class="tag-list" aria-label="Tecnologias">
+        <span class="tag good">FastAPI</span>
+        <span class="tag good">React</span>
+        <span class="tag good">Vite</span>
+        <span class="tag good">TypeScript</span>
+        <span class="tag good">SQLite</span>
+        <span class="tag good">PuLP</span>
+        <span class="tag">JWT</span>
+        <span class="tag">PDF/CSV</span>
+      </div>
+    </section>
+
+    <section id="arquitetura">
+      <div class="section-head">
+        <h2>Arquitetura</h2>
+        <p>O backend segue Clean Architecture para separar regra de negócio, casos de uso, infraestrutura e rotas da API.</p>
+      </div>
+      <div class="architecture">
+        <div class="layer-stack">
+          <div class="layer">
+            <strong>dominio</strong>
+            <span>Entidades, regras puras e validações centrais.</span>
+          </div>
+          <div class="layer">
+            <strong>aplicacao</strong>
+            <span>Casos de uso como finalizar venda, cancelar venda e gerar recomendação.</span>
+          </div>
+          <div class="layer">
+            <strong>infraestrutura</strong>
+            <span>SQLite, repositórios, autenticação, exportações, backups e solver.</span>
+          </div>
+          <div class="layer">
+            <strong>interfaces</strong>
+            <span>Rotas FastAPI, schemas de entrada e saída, dependências e permissões.</span>
+          </div>
+        </div>
+        <div class="code-panel">
+          <pre>backend/
+  app/
+    dominio/
+    aplicacao/
+    infraestrutura/
+    interfaces/
+    main.py
+
+frontend/
+  src/
+    app/
+    paginas/
+    funcionalidades/
+    componentes/
+    servicos/</pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="dominio">
+      <div class="section-head">
+        <h2>Domínio Principal</h2>
+        <p>As entidades foram nomeadas em português para facilitar leitura, defesa acadêmica e entendimento das regras.</p>
+      </div>
+      <div class="grid cols-3">
+        <article class="card">
+          <h3>Cadastro e Receita</h3>
+          <p>Produto, Categoria, Insumo, UnidadeMedida, ConversaoUnidade, ItemFichaTecnica e Adicional.</p>
+        </article>
+        <article class="card">
+          <h3>Operação</h3>
+          <p>Venda, ItemVenda, AdicionalItemVenda, RemocaoItemVenda, Promocao e MovimentacaoEstoque.</p>
+        </article>
+        <article class="card">
+          <h3>Gestão</h3>
+          <p>Usuario, Papel, LogAcesso, BackupBanco, Recomendacao e ItemRecomendacao.</p>
+        </article>
+      </div>
+      <div class="grid cols-2" style="margin-top:14px">
+        <article class="card">
+          <h3>Regras fortes</h3>
+          <p>Produto exige categoria, ficha técnica válida e venda por unidade. Produto sem estoque suficiente fica bloqueado no PDV.</p>
+        </article>
+        <article class="card">
+          <h3>Estoque confiável</h3>
+          <p>Entradas, saídas, ajustes, perdas e devoluções ficam registradas. Perda exige motivo e cancelamento devolve estoque.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="pdv">
+      <div class="section-head">
+        <h2>Fluxo Do PDV</h2>
+        <p>O PDV é feito para caixa e atendente, funcionando em desktop, notebook, tablet ou tela touch, com venda rápida, bloqueio automático e baixa de estoque.</p>
+      </div>
+      <div class="flow">
+        <div class="flow-step">
+          <div>
+            <strong>Selecionar categoria e produto</strong>
+            <span>O caixa vê produtos disponíveis e produtos bloqueados por falta de insumo.</span>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div>
+            <strong>Aplicar adicionais e remoções</strong>
+            <span>Adicionais são limitados por categoria. Remoções só aparecem para insumos marcados como removíveis.</span>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div>
+            <strong>Aplicar promoções válidas</strong>
+            <span>Produto específico vence categoria, categoria vence venda inteira, e empate usa maior economia.</span>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div>
+            <strong>Finalizar venda</strong>
+            <span>O sistema registra pagamento, gera número do pedido e baixa estoque automaticamente.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="dashboard">
+      <div class="section-head">
+        <h2>Dashboard E Relatórios</h2>
+        <p>O painel reúne operação, desempenho e recomendação em uma visão gerencial simples de apresentar.</p>
+      </div>
+      <div class="grid cols-3">
+        <article class="card">
+          <h3>Indicadores</h3>
+          <p>Vendas, faturamento, ticket médio, formas de pagamento, margem estimada e produtos mais vendidos.</p>
+        </article>
+        <article class="card">
+          <h3>Alertas</h3>
+          <p>Produtos bloqueados, insumos críticos, perdas, desperdícios e promoções ativas no período.</p>
+        </article>
+        <article class="card">
+          <h3>Exportações</h3>
+          <p>Relatórios com filtros de hoje, 7 dias, 30 dias e intervalo personalizado, exportáveis em PDF e CSV.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="simplex">
+      <div class="section-head">
+        <h2>Programação Linear</h2>
+        <p>O motor recomenda produção equilibrando lucro, demanda, estoque disponível e capacidade diária da cozinha.</p>
+      </div>
+      <div class="recommendation-panel">
+        <div class="formula-board">
+          <div class="formula">
+            <span>Variáveis de decisão</span>
+            <code>x_produto_1, x_produto_2, x_produto_3...</code>
+          </div>
+          <div class="formula">
+            <span>Função objetivo</span>
+            <code>maximizar soma(x_produto * margem_unitaria)</code>
+          </div>
+          <div class="formula">
+            <span>Restrições</span>
+            <code>uso_de_insumo <= estoque_disponivel<br>x_produto <= demanda_prevista<br>soma(x_produtos) <= capacidade_diaria_cozinha<br>x_produto >= 0 e inteiro</code>
+          </div>
+        </div>
+        <div class="grid">
+          <article class="score-card">
+            <div>
+              <h3>Fator de Recomendação</h3>
+              <div class="score">8.5</div>
+              <p>Representa a confiança da recomendação, considerando histórico, ficha técnica, estoque, estabilidade e risco de ruptura.</p>
+            </div>
+            <p>Escala de 0 a 10</p>
+          </article>
+          <article class="card">
+            <h3>Composição da confiança</h3>
+            <div class="bar-list">
+              <div class="bar-row">
+                <label><span>Histórico de vendas</span><span>2.0</span></label>
+                <div class="bar"><i style="width:100%"></i></div>
+              </div>
+              <div class="bar-row">
+                <label><span>Ficha técnica completa</span><span>2.0</span></label>
+                <div class="bar"><i style="width:100%"></i></div>
+              </div>
+              <div class="bar-row">
+                <label><span>Estoque atualizado</span><span>1.5</span></label>
+                <div class="bar"><i style="width:75%"></i></div>
+              </div>
+              <div class="bar-row">
+                <label><span>Estabilidade da demanda</span><span>1.5</span></label>
+                <div class="bar"><i style="width:75%"></i></div>
+              </div>
+              <div class="bar-row">
+                <label><span>Baixo risco de ruptura</span><span>1.5</span></label>
+                <div class="bar"><i style="width:75%"></i></div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="seguranca">
+      <div class="section-head">
+        <h2>Segurança E Confiabilidade</h2>
+        <p>O MVP é acadêmico, mas mantém decisões técnicas corretas para autenticação, rastreabilidade e proteção dos dados locais.</p>
+      </div>
+      <div class="grid cols-3">
+        <article class="card">
+          <h3>Autenticação</h3>
+          <p>Senha com hash, JWT de 15 minutos, refresh token de 7 dias e rotas protegidas por papel.</p>
+        </article>
+        <article class="card">
+          <h3>Rastreabilidade</h3>
+          <p>Logs de acesso, movimentações de estoque e vendas canceladas sem apagar histórico.</p>
+        </article>
+        <article class="card">
+          <h3>Backup</h3>
+          <p>Backup automático local do SQLite, mantendo os últimos 7 arquivos.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="decisoes">
+      <div class="section-head">
+        <h2>Decisões Registradas</h2>
+        <p>As principais escolhas do MVP foram fechadas para manter o projeto funcional, apresentável e sem complexidade desnecessária.</p>
+      </div>
+      <article class="card">
+        <ul class="decision-list">
+          <li>MVP implementável e funcional.</li>
+          <li>Backend em FastAPI.</li>
+          <li>Banco SQLite.</li>
+          <li>Frontend React, Vite e TypeScript.</li>
+          <li>Arquitetura em Clean Architecture.</li>
+          <li>Um único estabelecimento.</li>
+          <li>Login com papéis.</li>
+          <li>PDV para caixa e atendente.</li>
+          <li>Pagamentos apenas registrados.</li>
+          <li>Promoções cadastradas previamente.</li>
+          <li>Categorias obrigatórias.</li>
+          <li>Unidades padrão e personalizadas.</li>
+          <li>Conversões básicas e configuráveis.</li>
+          <li>Histórico de movimentações de estoque.</li>
+          <li>Adicionais e remoções no MVP.</li>
+          <li>Remoções afetam baixa de estoque.</li>
+          <li>Número de pedido no formato YYYYMMDD-001.</li>
+          <li>Dashboard com indicadores completos.</li>
+          <li>Exportação em PDF e CSV.</li>
+          <li>Cancelamento com motivo e devolução de estoque.</li>
+          <li>Programação Linear operacional.</li>
+          <li>Fator de Recomendação mede confiança.</li>
+          <li>Recomendações salvas em histórico.</li>
+          <li>Domínio e interface em português.</li>
+        </ul>
+      </article>
+    </section>
+
+    <section id="escopo">
+      <div class="section-head">
+        <h2>Escopo Do MVP</h2>
+        <p>O recorte mantém o que prova valor e deixa para depois o que aumentaria complexidade sem melhorar a apresentação inicial.</p>
+      </div>
+      <div class="scope-grid">
+        <article class="scope-card in">
+          <h3>Entra no MVP</h3>
+          <ul>
+            <li>PDV web responsivo/adaptável.</li>
+            <li>Ficha técnica.</li>
+            <li>Estoque com movimentações.</li>
+            <li>Promoções.</li>
+            <li>Dashboard.</li>
+            <li>PDF e CSV.</li>
+            <li>Programação Linear.</li>
+          </ul>
+        </article>
+        <article class="scope-card out">
+          <h3>Fica fora</h3>
+          <ul>
+            <li>SaaS real e cobrança.</li>
+            <li>Multi-tenant.</li>
+            <li>PIX/cartão real.</li>
+            <li>Autoatendimento pelo cliente.</li>
+            <li>Tela de cozinha.</li>
+            <li>Abertura e fechamento de caixa.</li>
+            <li>Microsserviços.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <strong>FoodFlow Gestão</strong>
+      <p>Especificação visual do MVP para apresentação e deploy estático.</p>
+    </div>
+  </footer>
+
+  <script>
+    const toggle = document.querySelector(".menu-toggle");
+    const links = document.querySelector("#navLinks");
+    const navItems = [...document.querySelectorAll(".nav-links a")];
+    const sections = navItems
+      .map((item) => document.querySelector(item.getAttribute("href")))
+      .filter(Boolean);
+
+    toggle.addEventListener("click", () => {
+      const open = links.classList.toggle("open");
+      toggle.setAttribute("aria-expanded", String(open));
+    });
+
+    navItems.forEach((item) => {
+      item.addEventListener("click", () => {
+        links.classList.remove("open");
+        toggle.setAttribute("aria-expanded", "false");
+      });
+    });
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        navItems.forEach((item) => {
+          item.classList.toggle("active", item.getAttribute("href") === `#${entry.target.id}`);
+        });
+      });
+    }, { rootMargin: "-35% 0px -55% 0px", threshold: 0.01 });
+
+    sections.forEach((section) => observer.observe(section));
+  </script>
+</body>
+</html>
