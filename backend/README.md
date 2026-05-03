@@ -43,6 +43,13 @@ API:
 - `GET /api/insumos/{insumo_id}/conversoes-compra`
 - `POST /api/estoque/entradas`
 - `GET /api/estoque/movimentacoes`
+- `POST /api/produtos`
+- `GET /api/produtos`
+- `GET /api/produtos/vendaveis`
+- `PUT /api/produtos/{produto_id}`
+- `PATCH /api/produtos/{produto_id}/status`
+- `PUT /api/produtos/{produto_id}/ficha-tecnica`
+- `POST /api/produtos/{produto_id}/recalcular`
 
 ## Fluxo inicial de autenticacao
 
@@ -81,3 +88,9 @@ Exemplo:
   "motivo": "Compra de 2 pacotes com 10 unidades cada"
 }
 ```
+
+## Produtos e ficha tecnica
+
+Produtos sao criados inicialmente como `RASCUNHO`. Para ativar um produto, cadastre uma ficha tecnica com pelo menos um insumo ativo e uma unidade compativel com a unidade base do insumo.
+
+O custo da ficha tecnica e a margem estimada sao calculados a partir do custo atual dos insumos. Use `POST /api/produtos/{produto_id}/recalcular` depois de alterar custos de insumos para atualizar o produto. Produtos ativos sem estoque suficiente para produzir uma unidade retornam `vendavel: false` e nao aparecem em `GET /api/produtos/vendaveis`.

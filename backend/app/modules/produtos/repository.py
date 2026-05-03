@@ -1,0 +1,59 @@
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
+
+from app.modules.produtos.models import ItemFichaTecnica, Produto, StatusProduto
+
+
+def buscar_produto_por_id(sessao: Session, produto_id: int) -> Produto | None:
+    return sessao.scalar(
+        select(Produto)
+        .options(selectinload(Produto.itens_ficha_tecnica))
+        .where(Produto.id == produto_id)
+    )
+
+
+def buscar_produto_por_nome(sessao: Session, nome: str) -> Produto | None:
+    return sessao.scalar(select(Produto).where(Produto.nome == nome.strip()))
+
+
+def listar_produtos(sessao: Session) -> list[Produto]:
+    return list(
+        sessao.scalars(
+            select(Produto)
+            .options(selectinload(Produto.itens_ficha_tecnica))
+            .order_by(Produto.nome)
+        )
+    )
+
+
+def listar_produtos_ativos(sessao: Session) -> list[Produto]:
+    return list(
+        sessao.scalars(
+            select(Produto)
+            .options(selectinload(Produto.itens_ficha_tecnica))
+            .where(Produto.status == StatusProduto.ATIVO)
+            .order_by(Produto.nome)
+        )
+    )
+
+
+def salvar_produto(sessao: Session, produto: Produto) -> Produto:
+    sessao.add(produto)
+    sessao.commit()
+    sessao.refresh(produto)
+    return produto
+
+
+def substituir_itens_ficha(
+    sessao: Session,
+    produto: Produto,
+    itens: list[ItemFichaTecnica],
+) -> Produto:
+    produto.itens_ficha_tecnica.clear()
+    sessao.flush()
+    produto.itens_ficha_tecnica.extend(itens)
+    sessao.add(produto)
+    sessao.commit()
+    sessao.refresh(produto)
+    _ = produto.itens_ficha_tecnica
+    return produto
