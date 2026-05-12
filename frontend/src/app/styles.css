@@ -176,6 +176,35 @@ h1 {
   font-weight: 700;
 }
 
+.data-row,
+.option-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  padding: 10px 12px;
+  border: 1px solid #e2dacd;
+  border-radius: 6px;
+  background: #fffdf8;
+}
+
+.data-row div,
+.option-row span {
+  display: grid;
+  gap: 4px;
+}
+
+.data-row strong {
+  color: #17201b;
+}
+
+.data-row small,
+.option-row small {
+  color: #66706b;
+  font-weight: 700;
+}
+
 .detail-panel,
 .form-panel {
   min-height: 252px;
@@ -230,6 +259,25 @@ h1 {
   background: #fff0eb;
 }
 
+.mini-status {
+  min-width: 84px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.mini-status.ok {
+  color: #244a2f;
+  background: #eef6e9;
+}
+
+.mini-status.blocked {
+  color: #8b3f2f;
+  background: #fff0eb;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -270,6 +318,28 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.variation-grid,
+.simulation-result {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.simulation-result {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
+.wide-panel {
+  grid-column: 1 / -1;
+}
+
+h3 {
+  margin: 0 0 10px;
+  color: #17201b;
+  font-size: 0.98rem;
 }
 
 label {
@@ -320,6 +390,17 @@ textarea {
   min-height: 18px;
 }
 
+.option-row {
+  justify-content: flex-start;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.option-row input {
+  width: 18px;
+  min-height: 18px;
+}
+
 .empty,
 .message {
   margin: 0;
@@ -342,7 +423,9 @@ textarea {
 
   .workspace,
   .status-grid,
-  .form-grid {
+  .form-grid,
+  .variation-grid,
+  .simulation-result {
     grid-template-columns: 1fr;
   }
 }

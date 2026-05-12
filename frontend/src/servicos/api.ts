@@ -117,6 +117,74 @@ export type ItemFichaTecnicaCriar = {
   removivel: boolean;
 };
 
+export type ItemFichaTecnicaAdicional = {
+  id: number;
+  adicional_id: number;
+  insumo_id: number;
+  quantidade: string;
+  unidade_medida_id: number;
+  criado_em: string;
+};
+
+export type Adicional = {
+  id: number;
+  nome: string;
+  descricao: string | null;
+  preco_extra: string;
+  ativo: boolean;
+  ficha_tecnica_valida: boolean;
+  disponivel: boolean;
+  motivo_indisponibilidade: string | null;
+  categoria_ids: number[];
+  criado_em: string;
+  itens_ficha_tecnica: ItemFichaTecnicaAdicional[];
+};
+
+export type AdicionalCriar = {
+  nome: string;
+  descricao?: string;
+  preco_extra: number;
+  ativo: boolean;
+  categoria_ids: number[];
+  itens_ficha_tecnica: {
+    insumo_id: number;
+    quantidade: number;
+    unidade_medida_id: number;
+  }[];
+};
+
+export type RemocaoPermitida = {
+  item_ficha_tecnica_id: number;
+  insumo_id: number;
+  nome_insumo: string;
+  quantidade: string;
+  unidade_medida_id: number;
+};
+
+export type VariacoesProduto = {
+  produto_id: number;
+  adicionais: Adicional[];
+  remocoes_permitidas: RemocaoPermitida[];
+  observacao_permitida: boolean;
+};
+
+export type SimulacaoItem = {
+  produto_id: number;
+  preco_base: string;
+  preco_adicionais: string;
+  preco_total: string;
+  observacao: string | null;
+  baixas_previstas: {
+    insumo_id: number;
+    nome_insumo: string;
+    quantidade: string;
+    estoque_atual: string;
+    estoque_depois: string;
+    suficiente: boolean;
+  }[];
+  estoque_suficiente: boolean;
+};
+
 export type Categoria = {
   id: number;
   nome: string;
@@ -181,4 +249,30 @@ export function atualizarStatusProduto(produtoId: number, status: StatusProduto)
 
 export function recalcularProduto(produtoId: number) {
   return requisitar<Produto>(`/produtos/${produtoId}/recalcular`, { metodo: "POST" });
+}
+
+export function listarAdicionais() {
+  return requisitar<Adicional[]>("/adicionais");
+}
+
+export function cadastrarAdicional(corpo: AdicionalCriar) {
+  return requisitar<Adicional>("/adicionais", { metodo: "POST", corpo });
+}
+
+export function listarVariacoesProduto(produtoId: number) {
+  return requisitar<VariacoesProduto>(`/adicionais/produto/${produtoId}/variacoes`);
+}
+
+export function simularItemProduto(
+  produtoId: number,
+  corpo: {
+    adicional_ids: number[];
+    remocao_item_ficha_tecnica_ids: number[];
+    observacao?: string;
+  },
+) {
+  return requisitar<SimulacaoItem>(`/adicionais/produto/${produtoId}/simulacao-item`, {
+    metodo: "POST",
+    corpo,
+  });
 }

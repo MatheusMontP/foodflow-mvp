@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.database.session import criar_banco, criar_dados_iniciais
+from app.modules.adicionais.routes import router as adicionais_router
 from app.modules.auth.routes import router as auth_router
 from app.modules.categorias.routes import router as categorias_router
 from app.modules.estoque.routes import router as estoque_router
@@ -34,6 +35,7 @@ def criar_app() -> FastAPI:
     app.include_router(insumos_router, prefix=settings.api_prefix)
     app.include_router(estoque_router, prefix=settings.api_prefix)
     app.include_router(produtos_router, prefix=settings.api_prefix)
+    app.include_router(adicionais_router, prefix=settings.api_prefix)
 
     @app.on_event("startup")
     def ao_iniciar() -> None:

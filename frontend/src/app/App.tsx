@@ -3,34 +3,45 @@ import {
   BadgeCheck,
   Boxes,
   Calculator,
+  CirclePlus,
+  ListChecks,
   LogIn,
   LogOut,
+  MessageSquare,
   PackagePlus,
   RefreshCw,
   ShieldPlus,
   ShoppingCart,
+  Tags,
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import {
   atualizarStatusProduto,
+  Adicional,
   buscarUsuarioAtual,
+  cadastrarAdicional,
   cadastrarProduto,
   Categoria,
   criarPrimeiroOwner,
   Insumo,
   ItemFichaTecnicaCriar,
   listarCategorias,
+  listarAdicionais,
   listarInsumos,
   listarProdutos,
   listarUnidadesMedida,
+  listarVariacoesProduto,
   Produto,
   recalcularProduto,
   salvarFichaTecnica,
   StatusProduto,
   UnidadeMedida,
   login,
+  simularItemProduto,
+  SimulacaoItem,
   Usuario,
+  VariacoesProduto,
 } from "../servicos/api";
 
 export function App() {
@@ -40,6 +51,9 @@ export function App() {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [insumos, setInsumos] = useState<Insumo[]>([]);
   const [unidades, setUnidades] = useState<UnidadeMedida[]>([]);
+  const [adicionais, setAdicionais] = useState<Adicional[]>([]);
+  const [variacoes, setVariacoes] = useState<VariacoesProduto | null>(null);
+  const [simulacao, setSimulacao] = useState<SimulacaoItem | null>(null);
   const [produtoSelecionadoId, setProdutoSelecionadoId] = useState<number | null>(null);
   const [mensagem, setMensagem] = useState("Informe um token JWT em localStorage.foodflow_token para operar a API protegida.");
   const [carregando, setCarregando] = useState(false);
@@ -62,6 +76,20 @@ export function App() {
     unidade_medida_id: 1,
     removivel: false,
   });
+  const [adicionalForm, setAdicionalForm] = useState({
+    nome: "",
+    descricao: "",
+    preco_extra: 0,
+    categoria_id: 1,
+    insumo_id: 1,
+    quantidade: 1,
+    unidade_medida_id: 1,
+  });
+  const [simulacaoForm, setSimulacaoForm] = useState({
+    adicional_ids: [] as number[],
+    remocao_item_ficha_tecnica_ids: [] as number[],
+    observacao: "",
+  });
 
   const produtoSelecionado = useMemo(
     () => produtos.find((produto) => produto.id === produtoSelecionadoId) ?? produtos[0],
@@ -69,6 +97,7 @@ export function App() {
   );
   const podeCriarProduto = categorias.length > 0 && !carregando;
   const podeSalvarFicha = Boolean(produtoSelecionado) && insumos.length > 0 && unidades.length > 0 && !carregando;
+  const podeCriarAdicional = categorias.length > 0 && insumos.length > 0 && unidades.length > 0 && !carregando;
 
   useEffect(() => {
     async function validarSessao() {
@@ -100,6 +129,15 @@ export function App() {
       void carregarDados();
     }
   }, [usuario]);
+
+  useEffect(() => {
+    if (usuario && produtoSelecionado) {
+      void carregarVariacoes(produtoSelecionado.id);
+    } else {
+      setVariacoes(null);
+      setSimulacao(null);
+    }
+  }, [usuario, produtoSelecionado?.id]);
 
   async function aoAutenticar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
@@ -137,6 +175,9 @@ export function App() {
     setCategorias([]);
     setInsumos([]);
     setUnidades([]);
+    setAdicionais([]);
+    setVariacoes(null);
+    setSimulacao(null);
     setProdutoSelecionadoId(null);
     setMensagem("Sessao encerrada.");
   }
@@ -144,21 +185,29 @@ export function App() {
   async function carregarDados() {
     setCarregando(true);
     try {
-      const [categoriasDados, insumosDados, unidadesDados, produtosDados] = await Promise.all([
+      const [categoriasDados, insumosDados, unidadesDados, produtosDados, adicionaisDados] = await Promise.all([
         listarCategorias(),
         listarInsumos(),
         listarUnidadesMedida(),
         listarProdutos(),
+        listarAdicionais(),
       ]);
 
       setCategorias(categoriasDados);
       setInsumos(insumosDados);
       setUnidades(unidadesDados);
       setProdutos(produtosDados);
+      setAdicionais(adicionaisDados);
       setProdutoSelecionadoId((atual) => atual ?? produtosDados[0]?.id ?? null);
       setProdutoForm((atual) => ({ ...atual, categoria_id: categoriasDados[0]?.id ?? 0 }));
       setItemForm((atual) => ({
         ...atual,
+        insumo_id: insumosDados[0]?.id ?? 0,
+        unidade_medida_id: unidadesDados[0]?.id ?? 0,
+      }));
+      setAdicionalForm((atual) => ({
+        ...atual,
+        categoria_id: categoriasDados[0]?.id ?? 0,
         insumo_id: insumosDados[0]?.id ?? 0,
         unidade_medida_id: unidadesDados[0]?.id ?? 0,
       }));
@@ -174,6 +223,19 @@ export function App() {
       setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel carregar os dados.");
     } finally {
       setCarregando(false);
+    }
+  }
+
+  async function carregarVariacoes(produtoId: number) {
+    try {
+      const variacoesDados = await listarVariacoesProduto(produtoId);
+      setVariacoes(variacoesDados);
+      setSimulacao(null);
+      setSimulacaoForm({ adicional_ids: [], remocao_item_ficha_tecnica_ids: [], observacao: "" });
+    } catch (erro) {
+      setVariacoes(null);
+      setSimulacao(null);
+      setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel carregar variacoes do produto.");
     }
   }
 
@@ -224,6 +286,71 @@ export function App() {
     }
   }
 
+  async function aoCadastrarAdicional(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    if (!categorias.length || !insumos.length || !unidades.length) {
+      setMensagem("Cadastre categorias, insumos e unidades antes de criar adicionais.");
+      return;
+    }
+
+    setCarregando(true);
+    try {
+      const adicional = await cadastrarAdicional({
+        nome: adicionalForm.nome,
+        descricao: adicionalForm.descricao,
+        preco_extra: adicionalForm.preco_extra,
+        ativo: true,
+        categoria_ids: [adicionalForm.categoria_id],
+        itens_ficha_tecnica: [
+          {
+            insumo_id: adicionalForm.insumo_id,
+            quantidade: adicionalForm.quantidade,
+            unidade_medida_id: adicionalForm.unidade_medida_id,
+          },
+        ],
+      });
+
+      setAdicionais((atuais) => [...atuais, adicional].sort((a, b) => a.nome.localeCompare(b.nome)));
+      setAdicionalForm({
+        nome: "",
+        descricao: "",
+        preco_extra: 0,
+        categoria_id: categorias[0]?.id ?? 0,
+        insumo_id: insumos[0]?.id ?? 0,
+        quantidade: 1,
+        unidade_medida_id: unidades[0]?.id ?? 0,
+      });
+      setMensagem("Adicional criado com categoria permitida e ficha tecnica.");
+      if (produtoSelecionado) {
+        await carregarVariacoes(produtoSelecionado.id);
+      }
+    } catch (erro) {
+      setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel cadastrar adicional.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  async function aoSimularItem(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    if (!produtoSelecionado) return;
+
+    setCarregando(true);
+    try {
+      const resultado = await simularItemProduto(produtoSelecionado.id, {
+        adicional_ids: simulacaoForm.adicional_ids,
+        remocao_item_ficha_tecnica_ids: simulacaoForm.remocao_item_ficha_tecnica_ids,
+        observacao: simulacaoForm.observacao || undefined,
+      });
+      setSimulacao(resultado);
+      setMensagem("Variacoes simuladas sem alterar o estoque.");
+    } catch (erro) {
+      setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel simular o item.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
   async function aoMudarStatus(status: StatusProduto) {
     if (!produtoSelecionado) return;
 
@@ -258,6 +385,16 @@ export function App() {
     setProdutos((atuais) =>
       atuais.map((produto) => (produto.id === produtoAtualizado.id ? produtoAtualizado : produto)),
     );
+  }
+
+  function alternarId(campo: "adicional_ids" | "remocao_item_ficha_tecnica_ids", id: number) {
+    setSimulacaoForm((atual) => {
+      const existe = atual[campo].includes(id);
+      return {
+        ...atual,
+        [campo]: existe ? atual[campo].filter((item) => item !== id) : [...atual[campo], id],
+      };
+    });
   }
 
   return (
@@ -534,6 +671,218 @@ export function App() {
             </button>
           </form>
         </section>
+
+        <section className="panel form-panel">
+          <div className="panel-title">
+            <CirclePlus size={20} aria-hidden="true" />
+            <h2>Novo adicional</h2>
+          </div>
+
+          <form className="form-grid" onSubmit={aoCadastrarAdicional}>
+            <label>
+              Nome
+              <input
+                value={adicionalForm.nome}
+                onChange={(evento) => setAdicionalForm({ ...adicionalForm, nome: evento.target.value })}
+              />
+            </label>
+            <label>
+              Categoria permitida
+              <select
+                value={adicionalForm.categoria_id}
+                onChange={(evento) => setAdicionalForm({ ...adicionalForm, categoria_id: Number(evento.target.value) })}
+                disabled={!categorias.length}
+              >
+                {categorias.map((categoria) => (
+                  <option key={categoria.id} value={categoria.id}>
+                    {categoria.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Preco extra
+              <input
+                inputMode="decimal"
+                type="text"
+                value={adicionalForm.preco_extra}
+                onFocus={(evento) => evento.target.select()}
+                onChange={(evento) => setAdicionalForm({ ...adicionalForm, preco_extra: Number(evento.target.value) })}
+              />
+            </label>
+            <label>
+              Insumo da ficha
+              <select
+                value={adicionalForm.insumo_id}
+                onChange={(evento) => setAdicionalForm({ ...adicionalForm, insumo_id: Number(evento.target.value) })}
+                disabled={!insumos.length}
+              >
+                {insumos.map((insumo) => (
+                  <option key={insumo.id} value={insumo.id}>
+                    {insumo.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Quantidade
+              <input
+                inputMode="decimal"
+                type="text"
+                value={adicionalForm.quantidade}
+                onFocus={(evento) => evento.target.select()}
+                onChange={(evento) => setAdicionalForm({ ...adicionalForm, quantidade: Number(evento.target.value) })}
+              />
+            </label>
+            <label>
+              Unidade
+              <select
+                value={adicionalForm.unidade_medida_id}
+                onChange={(evento) =>
+                  setAdicionalForm({ ...adicionalForm, unidade_medida_id: Number(evento.target.value) })
+                }
+                disabled={!unidades.length}
+              >
+                {unidades.map((unidade) => (
+                  <option key={unidade.id} value={unidade.id}>
+                    {unidade.nome} ({unidade.sigla})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="wide">
+              Descricao
+              <textarea
+                value={adicionalForm.descricao}
+                onChange={(evento) => setAdicionalForm({ ...adicionalForm, descricao: evento.target.value })}
+              />
+            </label>
+            <button type="submit" disabled={!podeCriarAdicional}>
+              Criar adicional
+            </button>
+          </form>
+        </section>
+
+        <section className="panel detail-panel">
+          <div className="panel-title">
+            <Tags size={20} aria-hidden="true" />
+            <h2>Adicionais cadastrados</h2>
+          </div>
+
+          <div className="stack">
+            {adicionais.map((adicional) => (
+              <div className="data-row" key={adicional.id}>
+                <div>
+                  <strong>{adicional.nome}</strong>
+                  <small>
+                    {formatarMoeda(adicional.preco_extra)} · {adicional.categoria_ids.map((id) => nomeCategoria(id, categorias)).join(", ")}
+                  </small>
+                </div>
+                <span className={`mini-status ${adicional.disponivel ? "ok" : "blocked"}`}>
+                  {adicional.disponivel ? "Disponivel" : "Bloqueado"}
+                </span>
+              </div>
+            ))}
+            {!adicionais.length ? <p className="empty">Nenhum adicional cadastrado ainda.</p> : null}
+          </div>
+        </section>
+
+        <section className="panel detail-panel wide-panel">
+          <div className="panel-title">
+            <ListChecks size={20} aria-hidden="true" />
+            <h2>Variacoes do item</h2>
+          </div>
+
+          {produtoSelecionado ? (
+            <form className="variation-grid" onSubmit={aoSimularItem}>
+              <div>
+                <h3>Adicionais permitidos</h3>
+                <div className="stack">
+                  {variacoes?.adicionais.map((adicional) => (
+                    <label className="option-row" key={adicional.id}>
+                      <input
+                        type="checkbox"
+                        checked={simulacaoForm.adicional_ids.includes(adicional.id)}
+                        onChange={() => alternarId("adicional_ids", adicional.id)}
+                      />
+                      <span>
+                        {adicional.nome}
+                        <small>{formatarMoeda(adicional.preco_extra)}</small>
+                      </span>
+                    </label>
+                  ))}
+                  {!variacoes?.adicionais.length ? <p className="empty">Nenhum adicional permitido para este produto.</p> : null}
+                </div>
+              </div>
+
+              <div>
+                <h3>Remocoes permitidas</h3>
+                <div className="stack">
+                  {variacoes?.remocoes_permitidas.map((remocao) => (
+                    <label className="option-row" key={remocao.item_ficha_tecnica_id}>
+                      <input
+                        type="checkbox"
+                        checked={simulacaoForm.remocao_item_ficha_tecnica_ids.includes(remocao.item_ficha_tecnica_id)}
+                        onChange={() => alternarId("remocao_item_ficha_tecnica_ids", remocao.item_ficha_tecnica_id)}
+                      />
+                      <span>
+                        {remocao.nome_insumo}
+                        <small>
+                          {formatarQuantidade(remocao.quantidade)} {nomeUnidade(remocao.unidade_medida_id, unidades)}
+                        </small>
+                      </span>
+                    </label>
+                  ))}
+                  {!variacoes?.remocoes_permitidas.length ? (
+                    <p className="empty">Nenhum insumo removivel marcado na ficha tecnica.</p>
+                  ) : null}
+                </div>
+              </div>
+
+              <label className="wide">
+                <MessageSquare size={18} aria-hidden="true" />
+                Observacao do item
+                <textarea
+                  maxLength={255}
+                  value={simulacaoForm.observacao}
+                  onChange={(evento) => setSimulacaoForm({ ...simulacaoForm, observacao: evento.target.value })}
+                />
+              </label>
+
+              <button type="submit" disabled={carregando || !produtoSelecionado.vendavel}>
+                Simular item
+              </button>
+            </form>
+          ) : (
+            <p className="empty">Selecione um produto para ver adicionais e remocoes.</p>
+          )}
+
+          {simulacao ? (
+            <div className="simulation-result">
+              <Metric label="Preco total" value={formatarMoeda(simulacao.preco_total)} />
+              <Metric label="Adicionais" value={formatarMoeda(simulacao.preco_adicionais)} />
+              <Metric label="Estoque" value={simulacao.estoque_suficiente ? "Suficiente" : "Insuficiente"} />
+              <div className="wide">
+                <h3>Baixa prevista</h3>
+                <div className="stack">
+                  {simulacao.baixas_previstas.map((baixa) => (
+                    <div className="data-row" key={baixa.insumo_id}>
+                      <div>
+                        <strong>{baixa.nome_insumo}</strong>
+                        <small>
+                          {formatarQuantidade(baixa.quantidade)} de {formatarQuantidade(baixa.estoque_atual)} em estoque
+                        </small>
+                      </div>
+                      <span className={`mini-status ${baixa.suficiente ? "ok" : "blocked"}`}>
+                        {baixa.suficiente ? "OK" : "Falta"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </section>
         </section>
       )}
 
@@ -556,4 +905,18 @@ function formatarMoeda(valor: string) {
     style: "currency",
     currency: "BRL",
   });
+}
+
+function formatarQuantidade(valor: string) {
+  return Number(valor).toLocaleString("pt-BR", {
+    maximumFractionDigits: 3,
+  });
+}
+
+function nomeCategoria(categoriaId: number, categorias: Categoria[]) {
+  return categorias.find((categoria) => categoria.id === categoriaId)?.nome ?? `Categoria ${categoriaId}`;
+}
+
+function nomeUnidade(unidadeId: number, unidades: UnidadeMedida[]) {
+  return unidades.find((unidade) => unidade.id === unidadeId)?.sigla ?? "";
 }
