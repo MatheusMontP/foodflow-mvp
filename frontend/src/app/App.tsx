@@ -4,15 +4,20 @@ import {
   Boxes,
   Calculator,
   CirclePlus,
+  CreditCard,
   ListChecks,
   LogIn,
   LogOut,
   MessageSquare,
+  Minus,
   PackagePlus,
+  Plus,
   RefreshCw,
+  ReceiptText,
   ShieldPlus,
   ShoppingCart,
   Tags,
+  Trash2,
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
@@ -23,7 +28,10 @@ import {
   cadastrarAdicional,
   cadastrarProduto,
   Categoria,
+  consultarCardapioPDV,
   criarPrimeiroOwner,
+  finalizarVenda,
+  FormaPagamento,
   Insumo,
   ItemFichaTecnicaCriar,
   listarCategorias,
@@ -42,12 +50,29 @@ import {
   SimulacaoItem,
   Usuario,
   VariacoesProduto,
+  Venda,
 } from "../servicos/api";
+
+type ItemCarrinho = {
+  id: string;
+  produto_id: number;
+  nome_produto: string;
+  quantidade: number;
+  preco_unitario: number;
+  preco_total: number;
+  adicional_ids: number[];
+  remocao_item_ficha_tecnica_ids: number[];
+  adicionais_resumo: string;
+  remocoes_resumo: string;
+  observacao: string;
+};
 
 export function App() {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [verificandoSessao, setVerificandoSessao] = useState(true);
   const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [cardapioProdutos, setCardapioProdutos] = useState<Produto[]>([]);
+  const [cardapioCategorias, setCardapioCategorias] = useState<Categoria[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [insumos, setInsumos] = useState<Insumo[]>([]);
   const [unidades, setUnidades] = useState<UnidadeMedida[]>([]);
@@ -55,6 +80,11 @@ export function App() {
   const [variacoes, setVariacoes] = useState<VariacoesProduto | null>(null);
   const [simulacao, setSimulacao] = useState<SimulacaoItem | null>(null);
   const [produtoSelecionadoId, setProdutoSelecionadoId] = useState<number | null>(null);
+  const [aba, setAba] = useState<"pdv" | "gestao">("pdv");
+  const [categoriaPdvId, setCategoriaPdvId] = useState<number | "todas">("todas");
+  const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
+  const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>("PIX");
+  const [vendaFinalizada, setVendaFinalizada] = useState<Venda | null>(null);
   const [mensagem, setMensagem] = useState("Informe um token JWT em localStorage.foodflow_token para operar a API protegida.");
   const [carregando, setCarregando] = useState(false);
   const [authModo, setAuthModo] = useState<"login" | "primeiro-owner">("login");
@@ -94,6 +124,17 @@ export function App() {
   const produtoSelecionado = useMemo(
     () => produtos.find((produto) => produto.id === produtoSelecionadoId) ?? produtos[0],
     [produtoSelecionadoId, produtos],
+  );
+  const produtosPdvFiltrados = useMemo(
+    () =>
+      cardapioProdutos.filter(
+        (produto) => categoriaPdvId === "todas" || produto.categoria_id === categoriaPdvId,
+      ),
+    [cardapioProdutos, categoriaPdvId],
+  );
+  const totalCarrinho = useMemo(
+    () => carrinho.reduce((total, item) => total + item.preco_total, 0),
+    [carrinho],
   );
   const podeCriarProduto = categorias.length > 0 && !carregando;
   const podeSalvarFicha = Boolean(produtoSelecionado) && insumos.length > 0 && unidades.length > 0 && !carregando;
@@ -176,15 +217,32 @@ export function App() {
     setInsumos([]);
     setUnidades([]);
     setAdicionais([]);
+    setCardapioProdutos([]);
+    setCardapioCategorias([]);
     setVariacoes(null);
     setSimulacao(null);
     setProdutoSelecionadoId(null);
+    setCarrinho([]);
+    setVendaFinalizada(null);
     setMensagem("Sessao encerrada.");
   }
 
   async function carregarDados() {
     setCarregando(true);
     try {
+      const cardapio = await consultarCardapioPDV();
+      setCardapioCategorias(cardapio.categorias);
+      setCardapioProdutos(cardapio.produtos);
+      setCategoriaPdvId((atual) => atual === "todas" || cardapio.categorias.some((categoria) => categoria.id === atual) ? atual : "todas");
+
+      if (usuario?.papel === "CASHIER") {
+        setProdutos(cardapio.produtos);
+        setCategorias(cardapio.categorias);
+        setProdutoSelecionadoId((atual) => atual ?? cardapio.produtos[0]?.id ?? null);
+        setMensagem(cardapio.produtos.length ? "PDV pronto para venda." : "Nenhum produto ativo para o PDV.");
+        return;
+      }
+
       const [categoriasDados, insumosDados, unidadesDados, produtosDados, adicionaisDados] = await Promise.all([
         listarCategorias(),
         listarInsumos(),
@@ -198,7 +256,7 @@ export function App() {
       setUnidades(unidadesDados);
       setProdutos(produtosDados);
       setAdicionais(adicionaisDados);
-      setProdutoSelecionadoId((atual) => atual ?? produtosDados[0]?.id ?? null);
+      setProdutoSelecionadoId((atual) => atual ?? cardapio.produtos[0]?.id ?? produtosDados[0]?.id ?? null);
       setProdutoForm((atual) => ({ ...atual, categoria_id: categoriasDados[0]?.id ?? 0 }));
       setItemForm((atual) => ({
         ...atual,
@@ -397,12 +455,108 @@ export function App() {
     });
   }
 
+  async function aoAdicionarItemCarrinho() {
+    if (!produtoSelecionado || !produtoSelecionado.vendavel) return;
+
+    setCarregando(true);
+    try {
+      const resultado = await simularItemProduto(produtoSelecionado.id, {
+        adicional_ids: simulacaoForm.adicional_ids,
+        remocao_item_ficha_tecnica_ids: simulacaoForm.remocao_item_ficha_tecnica_ids,
+        observacao: simulacaoForm.observacao || undefined,
+      });
+      const adicionaisResumo =
+        variacoes?.adicionais
+          .filter((adicional) => simulacaoForm.adicional_ids.includes(adicional.id))
+          .map((adicional) => adicional.nome)
+          .join(", ") ?? "";
+      const remocoesResumo =
+        variacoes?.remocoes_permitidas
+          .filter((remocao) => simulacaoForm.remocao_item_ficha_tecnica_ids.includes(remocao.item_ficha_tecnica_id))
+          .map((remocao) => remocao.nome_insumo)
+          .join(", ") ?? "";
+
+      setCarrinho((atual) => [
+        ...atual,
+        {
+          id: `${produtoSelecionado.id}-${Date.now()}`,
+          produto_id: produtoSelecionado.id,
+          nome_produto: produtoSelecionado.nome,
+          quantidade: 1,
+          preco_unitario: Number(resultado.preco_total),
+          preco_total: Number(resultado.preco_total),
+          adicional_ids: [...simulacaoForm.adicional_ids],
+          remocao_item_ficha_tecnica_ids: [...simulacaoForm.remocao_item_ficha_tecnica_ids],
+          adicionais_resumo: adicionaisResumo,
+          remocoes_resumo: remocoesResumo,
+          observacao: simulacaoForm.observacao,
+        },
+      ]);
+      setSimulacao(resultado);
+      setVendaFinalizada(null);
+      setMensagem("Item adicionado ao carrinho.");
+    } catch (erro) {
+      setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel adicionar o item.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  function alterarQuantidadeCarrinho(itemId: string, delta: number) {
+    setCarrinho((atual) =>
+      atuaisComQuantidadeValida(
+        atual.map((item) =>
+          item.id === itemId
+            ? {
+                ...item,
+                quantidade: item.quantidade + delta,
+                preco_total: item.preco_unitario * (item.quantidade + delta),
+              }
+            : item,
+        ),
+      ),
+    );
+  }
+
+  function removerItemCarrinho(itemId: string) {
+    setCarrinho((atual) => atual.filter((item) => item.id !== itemId));
+  }
+
+  async function aoFinalizarVenda() {
+    if (!carrinho.length) {
+      setMensagem("Adicione itens ao carrinho antes de finalizar.");
+      return;
+    }
+
+    setCarregando(true);
+    try {
+      const venda = await finalizarVenda({
+        forma_pagamento: formaPagamento,
+        itens: carrinho.map((item) => ({
+          produto_id: item.produto_id,
+          quantidade: item.quantidade,
+          adicional_ids: item.adicional_ids,
+          remocao_item_ficha_tecnica_ids: item.remocao_item_ficha_tecnica_ids,
+          observacao: item.observacao || undefined,
+        })),
+      });
+      setVendaFinalizada(venda);
+      setCarrinho([]);
+      await carregarDados();
+      setMensagem(`Venda ${venda.numero_pedido} finalizada.`);
+    } catch (erro) {
+      setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel finalizar a venda.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
   return (
     <main className="app-shell">
       <section className="topbar">
         <div>
           <p className="eyebrow">FoodFlow Gestao</p>
-          <h1>Produtos, ficha tecnica e disponibilidade</h1>
+          <h1>PDV e operacao de venda</h1>
         </div>
         {usuario ? (
           <div className="user-area">
@@ -481,6 +635,209 @@ export function App() {
           </form>
         </section>
       ) : (
+        <>
+        <div className="mode-tabs" role="tablist" aria-label="Areas do sistema">
+          <button className={aba === "pdv" ? "selected" : ""} type="button" onClick={() => setAba("pdv")}>
+            <ShoppingCart size={18} aria-hidden="true" />
+            PDV
+          </button>
+          {usuario.papel !== "CASHIER" ? (
+            <button className={aba === "gestao" ? "selected" : ""} type="button" onClick={() => setAba("gestao")}>
+              <Boxes size={18} aria-hidden="true" />
+              Gestao
+            </button>
+          ) : null}
+        </div>
+
+        {aba === "pdv" ? (
+          <section className="pdv-layout">
+            <section className="panel catalog-panel">
+              <div className="panel-title">
+                <ShoppingCart size={20} aria-hidden="true" />
+                <h2>Cardapio</h2>
+                <button className="icon-button" type="button" onClick={carregarDados} disabled={carregando} title="Atualizar">
+                  <RefreshCw size={18} aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className="category-tabs">
+                <button
+                  className={categoriaPdvId === "todas" ? "selected" : ""}
+                  type="button"
+                  onClick={() => setCategoriaPdvId("todas")}
+                >
+                  Todas
+                </button>
+                {cardapioCategorias.map((categoria) => (
+                  <button
+                    className={categoriaPdvId === categoria.id ? "selected" : ""}
+                    key={categoria.id}
+                    type="button"
+                    onClick={() => setCategoriaPdvId(categoria.id)}
+                  >
+                    {categoria.nome}
+                  </button>
+                ))}
+              </div>
+
+              <div className="product-grid">
+                {produtosPdvFiltrados.map((produto) => (
+                  <button
+                    className={`product-tile ${produtoSelecionado?.id === produto.id ? "selected" : ""}`}
+                    disabled={!produto.vendavel}
+                    key={produto.id}
+                    type="button"
+                    onClick={() => setProdutoSelecionadoId(produto.id)}
+                    title={produto.motivo_indisponibilidade ?? produto.nome}
+                  >
+                    <strong>{produto.nome}</strong>
+                    <span>{formatarMoeda(produto.preco_venda)}</span>
+                    <small>{produto.vendavel ? nomeCategoria(produto.categoria_id, cardapioCategorias) : produto.motivo_indisponibilidade}</small>
+                  </button>
+                ))}
+                {!produtosPdvFiltrados.length ? <p className="empty">Nenhum produto ativo nesta categoria.</p> : null}
+              </div>
+            </section>
+
+            <section className="panel options-panel">
+              <div className="panel-title">
+                <ListChecks size={20} aria-hidden="true" />
+                <h2>Item</h2>
+              </div>
+
+              {produtoSelecionado ? (
+                <div className="stack">
+                  <div className={`availability ${produtoSelecionado.vendavel ? "ok" : "blocked"}`}>
+                    <BadgeCheck size={18} aria-hidden="true" />
+                    <span>{produtoSelecionado.vendavel ? produtoSelecionado.nome : produtoSelecionado.motivo_indisponibilidade}</span>
+                  </div>
+
+                  <form className="variation-grid" onSubmit={aoSimularItem}>
+                    <div>
+                      <h3>Adicionais</h3>
+                      <div className="stack">
+                        {variacoes?.adicionais.map((adicional) => (
+                          <label className="option-row" key={adicional.id}>
+                            <input
+                              type="checkbox"
+                              checked={simulacaoForm.adicional_ids.includes(adicional.id)}
+                              onChange={() => alternarId("adicional_ids", adicional.id)}
+                            />
+                            <span>
+                              {adicional.nome}
+                              <small>{formatarMoeda(adicional.preco_extra)}</small>
+                            </span>
+                          </label>
+                        ))}
+                        {!variacoes?.adicionais.length ? <p className="empty">Sem adicionais para este produto.</p> : null}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3>Remocoes</h3>
+                      <div className="stack">
+                        {variacoes?.remocoes_permitidas.map((remocao) => (
+                          <label className="option-row" key={remocao.item_ficha_tecnica_id}>
+                            <input
+                              type="checkbox"
+                              checked={simulacaoForm.remocao_item_ficha_tecnica_ids.includes(remocao.item_ficha_tecnica_id)}
+                              onChange={() => alternarId("remocao_item_ficha_tecnica_ids", remocao.item_ficha_tecnica_id)}
+                            />
+                            <span>{remocao.nome_insumo}</span>
+                          </label>
+                        ))}
+                        {!variacoes?.remocoes_permitidas.length ? <p className="empty">Sem remocoes para este produto.</p> : null}
+                      </div>
+                    </div>
+
+                    <label className="wide">
+                      <MessageSquare size={18} aria-hidden="true" />
+                      Observacao
+                      <textarea
+                        maxLength={255}
+                        value={simulacaoForm.observacao}
+                        onChange={(evento) => setSimulacaoForm({ ...simulacaoForm, observacao: evento.target.value })}
+                      />
+                    </label>
+
+                    <button type="submit" disabled={carregando || !produtoSelecionado.vendavel}>
+                      Simular
+                    </button>
+                    <button type="button" disabled={carregando || !produtoSelecionado.vendavel} onClick={aoAdicionarItemCarrinho}>
+                      Adicionar
+                    </button>
+                  </form>
+
+                  {simulacao ? (
+                    <div className="simulation-result">
+                      <Metric label="Item" value={formatarMoeda(simulacao.preco_total)} />
+                      <Metric label="Adicionais" value={formatarMoeda(simulacao.preco_adicionais)} />
+                      <Metric label="Estoque" value={simulacao.estoque_suficiente ? "Suficiente" : "Insuficiente"} />
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="empty">Selecione um produto vendavel.</p>
+              )}
+            </section>
+
+            <aside className="panel cart-panel">
+              <div className="panel-title">
+                <ReceiptText size={20} aria-hidden="true" />
+                <h2>Carrinho</h2>
+              </div>
+
+              <div className="stack">
+                {carrinho.map((item) => (
+                  <div className="cart-row" key={item.id}>
+                    <div>
+                      <strong>{item.nome_produto}</strong>
+                      <small>
+                        {item.adicionais_resumo || "Sem adicional"}
+                        {item.remocoes_resumo ? ` - sem ${item.remocoes_resumo}` : ""}
+                      </small>
+                    </div>
+                    <div className="quantity-control">
+                      <button className="icon-button" type="button" onClick={() => alterarQuantidadeCarrinho(item.id, -1)} title="Diminuir">
+                        <Minus size={16} aria-hidden="true" />
+                      </button>
+                      <span>{item.quantidade}</span>
+                      <button className="icon-button" type="button" onClick={() => alterarQuantidadeCarrinho(item.id, 1)} title="Aumentar">
+                        <Plus size={16} aria-hidden="true" />
+                      </button>
+                    </div>
+                    <strong>{formatarMoeda(String(item.preco_total))}</strong>
+                    <button className="icon-button" type="button" onClick={() => removerItemCarrinho(item.id)} title="Remover">
+                      <Trash2 size={16} aria-hidden="true" />
+                    </button>
+                  </div>
+                ))}
+                {!carrinho.length ? <p className="empty">Carrinho vazio.</p> : null}
+              </div>
+
+              <div className="checkout-box">
+                <Metric label="Total" value={formatarMoeda(String(totalCarrinho))} />
+                <label>
+                  Pagamento
+                  <select value={formaPagamento} onChange={(evento) => setFormaPagamento(evento.target.value as FormaPagamento)}>
+                    <option value="PIX">PIX</option>
+                    <option value="DINHEIRO">Dinheiro</option>
+                    <option value="CARTAO_DEBITO">Cartao de debito</option>
+                    <option value="CARTAO_CREDITO">Cartao de credito</option>
+                    <option value="OUTRO">Outro</option>
+                  </select>
+                </label>
+                <button type="button" onClick={aoFinalizarVenda} disabled={carregando || !carrinho.length}>
+                  <CreditCard size={18} aria-hidden="true" />
+                  Finalizar venda
+                </button>
+                {vendaFinalizada ? (
+                  <p className="form-note">Pedido {vendaFinalizada.numero_pedido} concluido.</p>
+                ) : null}
+              </div>
+            </aside>
+          </section>
+        ) : (
         <section className="workspace">
         <aside className="panel product-list" aria-label="Produtos cadastrados">
           <div className="panel-title">
@@ -884,6 +1241,8 @@ export function App() {
           ) : null}
         </section>
         </section>
+        )}
+        </>
       )}
 
       <p className="message">{mensagem}</p>
@@ -919,4 +1278,13 @@ function nomeCategoria(categoriaId: number, categorias: Categoria[]) {
 
 function nomeUnidade(unidadeId: number, unidades: UnidadeMedida[]) {
   return unidades.find((unidade) => unidade.id === unidadeId)?.sigla ?? "";
+}
+
+function atuaisComQuantidadeValida(itens: ItemCarrinho[]) {
+  return itens
+    .filter((item) => item.quantidade > 0)
+    .map((item) => ({
+      ...item,
+      preco_total: item.preco_unitario * item.quantidade,
+    }));
 }

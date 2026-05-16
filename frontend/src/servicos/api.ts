@@ -185,6 +185,48 @@ export type SimulacaoItem = {
   estoque_suficiente: boolean;
 };
 
+export type FormaPagamento = "DINHEIRO" | "CARTAO_DEBITO" | "CARTAO_CREDITO" | "PIX" | "OUTRO";
+
+export type ItemVendaCriar = {
+  produto_id: number;
+  quantidade: number;
+  adicional_ids: number[];
+  remocao_item_ficha_tecnica_ids: number[];
+  observacao?: string;
+};
+
+export type VendaCriar = {
+  itens: ItemVendaCriar[];
+  forma_pagamento: FormaPagamento;
+  observacao?: string;
+};
+
+export type ItemVenda = {
+  id: number;
+  venda_id: number;
+  produto_id: number;
+  nome_produto: string;
+  quantidade: number;
+  preco_unitario: string;
+  preco_total: string;
+  adicionais_resumo: string | null;
+  remocoes_resumo: string | null;
+  observacao: string | null;
+};
+
+export type Venda = {
+  id: number;
+  numero_pedido: string;
+  usuario_id: number | null;
+  forma_pagamento: FormaPagamento;
+  status: "CONCLUIDA" | "CANCELADA";
+  subtotal: string;
+  total: string;
+  observacao: string | null;
+  criado_em: string;
+  itens: ItemVenda[];
+};
+
 export type Categoria = {
   id: number;
   nome: string;
@@ -227,6 +269,10 @@ export function listarUnidadesMedida() {
 
 export function listarProdutos() {
   return requisitar<Produto[]>("/produtos");
+}
+
+export function consultarCardapioPDV() {
+  return requisitar<{ categorias: Categoria[]; produtos: Produto[] }>("/pdv/cardapio");
 }
 
 export function cadastrarProduto(corpo: ProdutoCriar) {
@@ -275,4 +321,8 @@ export function simularItemProduto(
     metodo: "POST",
     corpo,
   });
+}
+
+export function finalizarVenda(corpo: VendaCriar) {
+  return requisitar<Venda>("/pdv/vendas", { metodo: "POST", corpo });
 }

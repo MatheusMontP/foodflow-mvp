@@ -50,6 +50,9 @@ API:
 - `PATCH /api/produtos/{produto_id}/status`
 - `PUT /api/produtos/{produto_id}/ficha-tecnica`
 - `POST /api/produtos/{produto_id}/recalcular`
+- `GET /api/pdv/cardapio`
+- `POST /api/pdv/vendas`
+- `GET /api/pdv/vendas`
 
 ## Fluxo inicial de autenticacao
 
@@ -94,3 +97,7 @@ Exemplo:
 Produtos sao criados inicialmente como `RASCUNHO`. Para ativar um produto, cadastre uma ficha tecnica com pelo menos um insumo ativo e uma unidade compativel com a unidade base do insumo.
 
 O custo da ficha tecnica e a margem estimada sao calculados a partir do custo atual dos insumos. Use `POST /api/produtos/{produto_id}/recalcular` depois de alterar custos de insumos para atualizar o produto. Produtos ativos sem estoque suficiente para produzir uma unidade retornam `vendavel: false` e nao aparecem em `GET /api/produtos/vendaveis`.
+
+## PDV e vendas
+
+O PDV usa `GET /api/pdv/cardapio` para listar produtos ativos, incluindo os bloqueados por estoque. Para finalizar uma venda, envie os itens para `POST /api/pdv/vendas` com forma de pagamento. O sistema gera numero diario no formato `YYYYMMDD-001`, grava os itens vendidos e registra movimentacoes de estoque do tipo `SAIDA_VENDA`.
