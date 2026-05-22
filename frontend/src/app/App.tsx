@@ -4,6 +4,7 @@ import {
   BadgePercent,
   Boxes,
   Calculator,
+  ClipboardCheck,
   CirclePlus,
   CreditCard,
   ListChecks,
@@ -30,7 +31,10 @@ import {
   cadastrarAdicional,
   cadastrarPromocao,
   cadastrarProduto,
+  cancelarVenda,
   Categoria,
+  ConferenciaEstoque,
+  confirmarConferenciaEstoque,
   consultarCardapioPDV,
   criarPrimeiroOwner,
   EscopoPromocao,
@@ -38,15 +42,21 @@ import {
   FormaPagamento,
   Insumo,
   ItemFichaTecnicaCriar,
-  listarPromocoes,
-  listarCategorias,
   listarAdicionais,
+  listarCategorias,
+  listarConferenciasEstoque,
   listarInsumos,
+  listarMovimentacoesEstoque,
   listarProdutos,
+  listarPromocoes,
   listarUnidadesMedida,
   listarVariacoesProduto,
+  listarVendas,
+  MovimentacaoEstoque,
   Produto,
   Promocao,
+  registrarAjusteEstoque,
+  registrarPerdaEstoque,
   TipoDesconto,
   recalcularProduto,
   salvarFichaTecnica,
@@ -85,6 +95,9 @@ export function App() {
   const [unidades, setUnidades] = useState<UnidadeMedida[]>([]);
   const [adicionais, setAdicionais] = useState<Adicional[]>([]);
   const [promocoes, setPromocoes] = useState<Promocao[]>([]);
+  const [vendas, setVendas] = useState<Venda[]>([]);
+  const [movimentacoes, setMovimentacoes] = useState<MovimentacaoEstoque[]>([]);
+  const [conferencias, setConferencias] = useState<ConferenciaEstoque[]>([]);
   const [variacoes, setVariacoes] = useState<VariacoesProduto | null>(null);
   const [simulacao, setSimulacao] = useState<SimulacaoItem | null>(null);
   const [produtoSelecionadoId, setProdutoSelecionadoId] = useState<number | null>(null);
@@ -132,6 +145,24 @@ export function App() {
     categoria_id: 1,
     inicio_em: "",
     fim_em: "",
+  });
+  const [cancelamentoForm, setCancelamentoForm] = useState({
+    venda_id: 0,
+    motivo: "",
+  });
+  const [ajusteForm, setAjusteForm] = useState({
+    insumo_id: 1,
+    quantidade_diferenca: 0,
+    motivo: "",
+  });
+  const [perdaForm, setPerdaForm] = useState({
+    insumo_id: 1,
+    quantidade: 0,
+    motivo: "",
+  });
+  const [conferenciaForm, setConferenciaForm] = useState({
+    data: "",
+    observacao: "",
   });
   const [simulacaoForm, setSimulacaoForm] = useState({
     adicional_ids: [] as number[],
@@ -241,6 +272,9 @@ export function App() {
     setUnidades([]);
     setAdicionais([]);
     setPromocoes([]);
+    setVendas([]);
+    setMovimentacoes([]);
+    setConferencias([]);
     setCardapioProdutos([]);
     setCardapioCategorias([]);
     setVariacoes(null);
@@ -267,13 +301,26 @@ export function App() {
         return;
       }
 
-      const [categoriasDados, insumosDados, unidadesDados, produtosDados, adicionaisDados, promocoesDados] = await Promise.all([
+      const [
+        categoriasDados,
+        insumosDados,
+        unidadesDados,
+        produtosDados,
+        adicionaisDados,
+        promocoesDados,
+        vendasDados,
+        movimentacoesDados,
+        conferenciasDados,
+      ] = await Promise.all([
         listarCategorias(),
         listarInsumos(),
         listarUnidadesMedida(),
         listarProdutos(),
         listarAdicionais(),
         listarPromocoes(),
+        listarVendas(),
+        listarMovimentacoesEstoque(),
+        listarConferenciasEstoque(),
       ]);
 
       setCategorias(categoriasDados);
@@ -282,6 +329,9 @@ export function App() {
       setProdutos(produtosDados);
       setAdicionais(adicionaisDados);
       setPromocoes(promocoesDados);
+      setVendas(vendasDados);
+      setMovimentacoes(movimentacoesDados);
+      setConferencias(conferenciasDados);
       setProdutoSelecionadoId((atual) => atual ?? cardapio.produtos[0]?.id ?? produtosDados[0]?.id ?? null);
       setProdutoForm((atual) => ({ ...atual, categoria_id: categoriasDados[0]?.id ?? 0 }));
       setItemForm((atual) => ({
@@ -300,6 +350,9 @@ export function App() {
         produto_id: produtosDados[0]?.id ?? 0,
         categoria_id: categoriasDados[0]?.id ?? 0,
       }));
+      setCancelamentoForm((atual) => ({ ...atual, venda_id: vendasDados[0]?.id ?? 0 }));
+      setAjusteForm((atual) => ({ ...atual, insumo_id: insumosDados[0]?.id ?? 0 }));
+      setPerdaForm((atual) => ({ ...atual, insumo_id: insumosDados[0]?.id ?? 0 }));
 
       if (!categoriasDados.length) {
         setMensagem("Cadastre uma categoria antes de criar produtos.");
@@ -468,6 +521,74 @@ export function App() {
       setMensagem(`Promocao ${atualizada.ativa ? "ativada" : "inativada"}.`);
     } catch (erro) {
       setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel alterar a promocao.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  async function aoCancelarVenda(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    if (!cancelamentoForm.venda_id) {
+      setMensagem("Selecione uma venda para cancelar.");
+      return;
+    }
+
+    setCarregando(true);
+    try {
+      const venda = await cancelarVenda(cancelamentoForm.venda_id, cancelamentoForm.motivo);
+      setCancelamentoForm({ venda_id: 0, motivo: "" });
+      await carregarDados();
+      setMensagem(`Venda ${venda.numero_pedido} cancelada e estoque devolvido.`);
+    } catch (erro) {
+      setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel cancelar a venda.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  async function aoRegistrarAjuste(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    setCarregando(true);
+    try {
+      await registrarAjusteEstoque(ajusteForm);
+      setAjusteForm({ insumo_id: insumos[0]?.id ?? 0, quantidade_diferenca: 0, motivo: "" });
+      await carregarDados();
+      setMensagem("Ajuste manual registrado.");
+    } catch (erro) {
+      setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel registrar ajuste.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  async function aoRegistrarPerda(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    setCarregando(true);
+    try {
+      await registrarPerdaEstoque(perdaForm);
+      setPerdaForm({ insumo_id: insumos[0]?.id ?? 0, quantidade: 0, motivo: "" });
+      await carregarDados();
+      setMensagem("Perda ou desperdicio registrado.");
+    } catch (erro) {
+      setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel registrar perda.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  async function aoConfirmarConferencia(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    setCarregando(true);
+    try {
+      const conferencia = await confirmarConferenciaEstoque({
+        data: conferenciaForm.data || undefined,
+        observacao: conferenciaForm.observacao || undefined,
+      });
+      setConferenciaForm({ data: "", observacao: "" });
+      await carregarDados();
+      setMensagem(`Estoque conferido em ${conferencia.data}.`);
+    } catch (erro) {
+      setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel confirmar conferencia.");
     } finally {
       setCarregando(false);
     }
@@ -1357,6 +1478,163 @@ export function App() {
           </div>
         </section>
 
+        <section className="panel form-panel wide-panel">
+          <div className="panel-title">
+            <ClipboardCheck size={20} aria-hidden="true" />
+            <h2>Rastreabilidade operacional</h2>
+          </div>
+
+          <div className="operation-grid">
+            <form className="stack" onSubmit={aoCancelarVenda}>
+              <h3>Cancelamento</h3>
+              <label>
+                Venda
+                <select
+                  value={cancelamentoForm.venda_id}
+                  onChange={(evento) => setCancelamentoForm({ ...cancelamentoForm, venda_id: Number(evento.target.value) })}
+                >
+                  <option value={0}>Selecione</option>
+                  {vendas.map((venda) => (
+                    <option key={venda.id} value={venda.id} disabled={venda.status === "CANCELADA"}>
+                      {venda.numero_pedido} - {formatarMoeda(venda.total)} - {venda.status}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Motivo
+                <textarea
+                  maxLength={500}
+                  value={cancelamentoForm.motivo}
+                  onChange={(evento) => setCancelamentoForm({ ...cancelamentoForm, motivo: evento.target.value })}
+                />
+              </label>
+              <button type="submit" disabled={carregando || !cancelamentoForm.venda_id}>
+                Cancelar venda
+              </button>
+            </form>
+
+            <form className="stack" onSubmit={aoRegistrarAjuste}>
+              <h3>Ajuste manual</h3>
+              <label>
+                Insumo
+                <select
+                  value={ajusteForm.insumo_id}
+                  onChange={(evento) => setAjusteForm({ ...ajusteForm, insumo_id: Number(evento.target.value) })}
+                  disabled={!insumos.length}
+                >
+                  {insumos.map((insumo) => (
+                    <option key={insumo.id} value={insumo.id}>
+                      {insumo.nome}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Diferenca
+                <input
+                  inputMode="decimal"
+                  type="text"
+                  value={ajusteForm.quantidade_diferenca}
+                  onFocus={(evento) => evento.target.select()}
+                  onChange={(evento) => setAjusteForm({ ...ajusteForm, quantidade_diferenca: Number(evento.target.value) })}
+                />
+              </label>
+              <label>
+                Motivo
+                <input
+                  value={ajusteForm.motivo}
+                  onChange={(evento) => setAjusteForm({ ...ajusteForm, motivo: evento.target.value })}
+                />
+              </label>
+              <button type="submit" disabled={carregando || !insumos.length}>
+                Registrar ajuste
+              </button>
+            </form>
+
+            <form className="stack" onSubmit={aoRegistrarPerda}>
+              <h3>Perda</h3>
+              <label>
+                Insumo
+                <select
+                  value={perdaForm.insumo_id}
+                  onChange={(evento) => setPerdaForm({ ...perdaForm, insumo_id: Number(evento.target.value) })}
+                  disabled={!insumos.length}
+                >
+                  {insumos.map((insumo) => (
+                    <option key={insumo.id} value={insumo.id}>
+                      {insumo.nome}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Quantidade
+                <input
+                  inputMode="decimal"
+                  type="text"
+                  value={perdaForm.quantidade}
+                  onFocus={(evento) => evento.target.select()}
+                  onChange={(evento) => setPerdaForm({ ...perdaForm, quantidade: Number(evento.target.value) })}
+                />
+              </label>
+              <label>
+                Motivo
+                <input
+                  value={perdaForm.motivo}
+                  onChange={(evento) => setPerdaForm({ ...perdaForm, motivo: evento.target.value })}
+                />
+              </label>
+              <button type="submit" disabled={carregando || !insumos.length}>
+                Registrar perda
+              </button>
+            </form>
+
+            <form className="stack" onSubmit={aoConfirmarConferencia}>
+              <h3>Conferencia diaria</h3>
+              <label>
+                Data
+                <input
+                  type="date"
+                  value={conferenciaForm.data}
+                  onChange={(evento) => setConferenciaForm({ ...conferenciaForm, data: evento.target.value })}
+                />
+              </label>
+              <label>
+                Observacao
+                <input
+                  value={conferenciaForm.observacao}
+                  onChange={(evento) => setConferenciaForm({ ...conferenciaForm, observacao: evento.target.value })}
+                />
+              </label>
+              <button type="submit" disabled={carregando}>
+                Confirmar estoque
+              </button>
+              <p className="empty">
+                Ultima conferencia: {conferencias[0]?.data ?? "nenhuma"}
+              </p>
+            </form>
+          </div>
+
+          <div className="movement-list">
+            <h3>Movimentacoes recentes</h3>
+            <div className="stack">
+              {movimentacoes.slice(0, 8).map((movimentacao) => (
+                <div className="data-row" key={movimentacao.id}>
+                  <div>
+                    <strong>{movimentacao.tipo}</strong>
+                    <small>
+                      {nomeInsumo(movimentacao.insumo_id, insumos)} - {formatarQuantidade(movimentacao.quantidade)} - {movimentacao.motivo ?? "sem motivo"}
+                    </small>
+                  </div>
+                  <span className="mini-status ok">{formatarQuantidade(movimentacao.estoque_depois)}</span>
+                </div>
+              ))}
+              {!movimentacoes.length ? <p className="empty">Nenhuma movimentacao registrada ainda.</p> : null}
+            </div>
+          </div>
+        </section>
+
         <section className="panel detail-panel wide-panel">
           <div className="panel-title">
             <ListChecks size={20} aria-hidden="true" />
@@ -1491,6 +1769,10 @@ function nomeCategoria(categoriaId: number, categorias: Categoria[]) {
 
 function nomeUnidade(unidadeId: number, unidades: UnidadeMedida[]) {
   return unidades.find((unidade) => unidade.id === unidadeId)?.sigla ?? "";
+}
+
+function nomeInsumo(insumoId: number, insumos: Insumo[]) {
+  return insumos.find((insumo) => insumo.id === insumoId)?.nome ?? `Insumo ${insumoId}`;
 }
 
 function rotuloPromocao(promocao: Promocao, produtos: Produto[], categorias: Categoria[]) {

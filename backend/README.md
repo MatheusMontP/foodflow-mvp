@@ -42,7 +42,11 @@ API:
 - `POST /api/insumos/{insumo_id}/conversoes-compra`
 - `GET /api/insumos/{insumo_id}/conversoes-compra`
 - `POST /api/estoque/entradas`
+- `POST /api/estoque/ajustes`
+- `POST /api/estoque/perdas`
 - `GET /api/estoque/movimentacoes`
+- `POST /api/estoque/conferencias-diarias`
+- `GET /api/estoque/conferencias-diarias`
 - `POST /api/produtos`
 - `GET /api/produtos`
 - `GET /api/produtos/vendaveis`
@@ -53,6 +57,7 @@ API:
 - `GET /api/pdv/cardapio`
 - `POST /api/pdv/vendas`
 - `GET /api/pdv/vendas`
+- `POST /api/pdv/vendas/{venda_id}/cancelar`
 - `POST /api/promocoes`
 - `GET /api/promocoes`
 - `PUT /api/promocoes/{promocao_id}`
@@ -111,3 +116,9 @@ O PDV usa `GET /api/pdv/cardapio` para listar produtos ativos, incluindo os bloq
 Promocoes podem ser cadastradas por produto, categoria ou venda inteira. O desconto pode ser percentual ou valor fixo, com periodo opcional de vigencia.
 
 Na finalizacao da venda, o sistema aplica promocoes automaticamente usando a prioridade `produto > categoria > venda inteira`. Quando houver empate no mesmo nivel, vence a promocao que gera maior economia. Promocoes inativas ou fora do periodo nao alteram o total.
+
+## Cancelamento e rastreabilidade
+
+Vendas podem ser canceladas em `POST /api/pdv/vendas/{venda_id}/cancelar` com motivo obrigatorio. A venda nao e apagada: o status passa para `CANCELADA`, o motivo fica registrado e o sistema cria movimentacoes `DEVOLUCAO_CANCELAMENTO` para devolver ao estoque as quantidades baixadas na venda.
+
+O estoque tambem suporta ajuste manual, perda/desperdicio com motivo obrigatorio e confirmacao diaria de conferencia. As movimentacoes ficam historicamente registradas em `GET /api/estoque/movimentacoes`.

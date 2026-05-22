@@ -38,6 +38,9 @@ class Venda(Base):
     total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     promocoes_resumo: Mapped[str | None] = mapped_column(Text, nullable=True)
     observacao: Mapped[str | None] = mapped_column(Text, nullable=True)
+    motivo_cancelamento: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cancelado_por_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    cancelado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     itens = relationship("ItemVenda", back_populates="venda", cascade="all, delete-orphan")

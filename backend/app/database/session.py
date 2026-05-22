@@ -50,10 +50,16 @@ def _garantir_colunas_sqlite() -> None:
         "vendas": {
             "desconto_total": "NUMERIC(12, 2) NOT NULL DEFAULT 0",
             "promocoes_resumo": "TEXT",
+            "motivo_cancelamento": "TEXT",
+            "cancelado_por_id": "INTEGER",
+            "cancelado_em": "DATETIME",
         },
         "itens_venda": {
             "desconto_total": "NUMERIC(12, 2) NOT NULL DEFAULT 0",
             "promocao_resumo": "TEXT",
+        },
+        "movimentacoes_estoque": {
+            "venda_id": "INTEGER",
         },
     }
     with engine.begin() as conexao:

@@ -10,10 +10,11 @@ from app.modules.adicionais.schemas import SimulacaoItemRequest
 from app.modules.categorias.repository import listar_categorias
 from app.modules.estoque.models import MovimentacaoEstoque, TipoMovimentacaoEstoque
 from app.modules.estoque.repository import atualizar_estoque_insumo, salvar_movimentacao
+from app.modules.estoque.repository import listar_movimentacoes_por_venda
 from app.modules.insumos.repository import buscar_insumo_por_id
 from app.modules.pdv.models import ItemVenda, StatusVenda, Venda
-from app.modules.pdv.repository import contar_vendas_por_prefixo, listar_vendas, salvar_venda
-from app.modules.pdv.schemas import VendaCriar
+from app.modules.pdv.repository import buscar_venda_por_id, contar_vendas_por_prefixo, listar_vendas, salvar_venda
+from app.modules.pdv.schemas import VendaCancelar, VendaCriar
 from app.modules.produtos.repository import buscar_produto_por_id, listar_produtos_ativos
 from app.modules.produtos.service import produto_para_response
 from app.modules.promocoes.service import ItemPromocaoContexto, calcular_promocoes_venda
@@ -128,7 +129,59 @@ def finalizar_venda(sessao: Session, dados: VendaCriar, usuario_id: int | None) 
         itens=itens_venda,
     )
     venda = salvar_venda(sessao, venda)
-    _baixar_estoque(sessao, baixas_agregadas, usuario_id, venda.numero_pedido)
+    _baixar_estoque(sessao, baixas_agregadas, usuario_id, venda.id, venda.numero_pedido)
+    sessao.commit()
+    sessao.refresh(venda)
+    _ = venda.itens
+    return venda
+
+
+def cancelar_venda(sessao: Session, venda_id: int, dados: VendaCancelar, usuario_id: int | None) -> Venda:
+    venda = buscar_venda_por_id(sessao, venda_id)
+    if venda is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Venda nao encontrada.")
+    if venda.status == StatusVenda.CANCELADA:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Venda ja esta cancelada.")
+
+    saidas = [
+        movimentacao
+        for movimentacao in listar_movimentacoes_por_venda(sessao, venda.id, venda.numero_pedido)
+        if movimentacao.tipo == TipoMovimentacaoEstoque.SAIDA_VENDA
+    ]
+    if not saidas:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Venda nao possui movimentacoes de saida para devolver.",
+        )
+
+    for saida in saidas:
+        insumo = buscar_insumo_por_id(sessao, saida.insumo_id)
+        if insumo is None:
+            continue
+
+        estoque_antes = Decimal(insumo.quantidade_estoque)
+        estoque_depois = estoque_antes + Decimal(saida.quantidade)
+        insumo.quantidade_estoque = estoque_depois
+        atualizar_estoque_insumo(sessao, insumo)
+        salvar_movimentacao(
+            sessao,
+            MovimentacaoEstoque(
+                insumo_id=insumo.id,
+                usuario_id=usuario_id,
+                venda_id=venda.id,
+                tipo=TipoMovimentacaoEstoque.DEVOLUCAO_CANCELAMENTO,
+                quantidade=Decimal(saida.quantidade),
+                estoque_antes=estoque_antes,
+                estoque_depois=estoque_depois,
+                motivo=f"Cancelamento da venda {venda.numero_pedido}: {dados.motivo}",
+            ),
+        )
+
+    venda.status = StatusVenda.CANCELADA
+    venda.motivo_cancelamento = dados.motivo
+    venda.cancelado_por_id = usuario_id
+    venda.cancelado_em = datetime.now()
+    sessao.add(venda)
     sessao.commit()
     sessao.refresh(venda)
     _ = venda.itens
@@ -156,6 +209,7 @@ def _baixar_estoque(
     sessao: Session,
     baixas: dict[int, Decimal],
     usuario_id: int | None,
+    venda_id: int,
     numero_pedido: str,
 ) -> None:
     for insumo_id, quantidade in baixas.items():
@@ -172,6 +226,7 @@ def _baixar_estoque(
             MovimentacaoEstoque(
                 insumo_id=insumo.id,
                 usuario_id=usuario_id,
+                venda_id=venda_id,
                 tipo=TipoMovimentacaoEstoque.SAIDA_VENDA,
                 quantidade=quantidade,
                 estoque_antes=estoque_antes,

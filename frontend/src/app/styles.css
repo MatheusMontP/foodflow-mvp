@@ -210,7 +210,8 @@ h1 {
 }
 
 .sale-summary,
-.promotion-list {
+.promotion-list,
+.movement-list {
   display: grid;
   gap: 8px;
 }
@@ -223,6 +224,16 @@ h1 {
 
 .promotion-list {
   margin-top: 16px;
+}
+
+.operation-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.movement-list {
+  margin-top: 18px;
 }
 
 .checkout-box button {
@@ -557,6 +568,7 @@ textarea {
 
   .workspace,
   .pdv-layout,
+  .operation-grid,
   .status-grid,
   .form-grid,
   .variation-grid,

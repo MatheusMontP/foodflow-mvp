@@ -2,7 +2,7 @@
 
 MVP web para pequenos negocios alimenticios, com autenticacao por papel, cadastros operacionais, ficha tecnica, controle de estoque por insumos e PDV responsivo.
 
-O projeto esta sendo construido em blocos incrementais. O estado atual ja cobre ate o **Bloco 7 - Promocoes**.
+O projeto esta sendo construido em blocos incrementais. O estado atual ja cobre ate o **Bloco 8 - Cancelamento e movimentacoes de estoque**.
 
 ## Status dos blocos
 
@@ -13,7 +13,8 @@ O projeto esta sendo construido em blocos incrementais. O estado atual ja cobre 
 - Bloco 5 - Adicionais, remocoes e observacoes: concluido.
 - Bloco 6 - PDV e venda: concluido.
 - Bloco 7 - Promocoes: concluido.
-- Bloco 8 - Cancelamento e movimentacoes de estoque: proximo bloco.
+- Bloco 8 - Cancelamento e movimentacoes de estoque: concluido.
+- Bloco 9 - Dashboard, relatorios e exportacoes: proximo bloco.
 
 ## Tecnologias
 
@@ -223,6 +224,16 @@ Adicionais:
 - Empate no mesmo nivel resolvido pela maior economia.
 - Promocoes inativas ou fora do periodo nao alteram a venda.
 
+### Cancelamento e rastreabilidade de estoque
+
+- Cancelamento de venda com motivo obrigatorio.
+- Venda cancelada permanece registrada com status `CANCELADA`.
+- Devolucao automatica dos insumos ao estoque.
+- Movimentacoes historicas de entrada, saida por venda, ajuste manual, perda/desperdicio e devolucao por cancelamento.
+- Ajustes manuais exigem motivo.
+- Perdas/desperdicios exigem motivo e nao podem deixar estoque negativo.
+- Confirmacao diaria de estoque conferido.
+
 ## Principais rotas da API
 
 ### Saude
@@ -258,7 +269,11 @@ Adicionais:
 ### Estoque
 
 - `POST /api/estoque/entradas`
+- `POST /api/estoque/ajustes`
+- `POST /api/estoque/perdas`
 - `GET /api/estoque/movimentacoes`
+- `POST /api/estoque/conferencias-diarias`
+- `GET /api/estoque/conferencias-diarias`
 
 ### Produtos
 
@@ -285,6 +300,7 @@ Adicionais:
 - `GET /api/pdv/cardapio`
 - `POST /api/pdv/vendas`
 - `GET /api/pdv/vendas`
+- `POST /api/pdv/vendas/{venda_id}/cancelar`
 
 ### Promocoes
 
@@ -308,4 +324,4 @@ Adicionais:
 
 - O arquivo `backend/foodflow.db` fica fora do Git por ser banco local de desenvolvimento.
 - O arquivo `backend/.env` tambem fica fora do Git.
-- O proximo bloco planejado e o **Bloco 8 - Cancelamento e movimentacoes de estoque**.
+- O proximo bloco planejado e o **Bloco 9 - Dashboard, relatorios e exportacoes**.

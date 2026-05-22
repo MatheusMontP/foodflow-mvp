@@ -227,8 +227,39 @@ export type Venda = {
   total: string;
   promocoes_resumo: string | null;
   observacao: string | null;
+  motivo_cancelamento: string | null;
+  cancelado_por_id: number | null;
+  cancelado_em: string | null;
   criado_em: string;
   itens: ItemVenda[];
+};
+
+export type TipoMovimentacaoEstoque =
+  | "ENTRADA"
+  | "SAIDA_VENDA"
+  | "AJUSTE_MANUAL"
+  | "PERDA_DESPERDICIO"
+  | "DEVOLUCAO_CANCELAMENTO";
+
+export type MovimentacaoEstoque = {
+  id: number;
+  insumo_id: number;
+  usuario_id: number | null;
+  venda_id: number | null;
+  tipo: TipoMovimentacaoEstoque;
+  quantidade: string;
+  estoque_antes: string;
+  estoque_depois: string;
+  motivo: string | null;
+  criado_em: string;
+};
+
+export type ConferenciaEstoque = {
+  id: number;
+  data: string;
+  usuario_id: number | null;
+  observacao: string | null;
+  criado_em: string;
 };
 
 export type EscopoPromocao = "PRODUTO" | "CATEGORIA" | "VENDA";
@@ -373,4 +404,43 @@ export function simularItemProduto(
 
 export function finalizarVenda(corpo: VendaCriar) {
   return requisitar<Venda>("/pdv/vendas", { metodo: "POST", corpo });
+}
+
+export function listarVendas() {
+  return requisitar<Venda[]>("/pdv/vendas");
+}
+
+export function cancelarVenda(vendaId: number, motivo: string) {
+  return requisitar<Venda>(`/pdv/vendas/${vendaId}/cancelar`, {
+    metodo: "POST",
+    corpo: { motivo },
+  });
+}
+
+export function listarMovimentacoesEstoque() {
+  return requisitar<MovimentacaoEstoque[]>("/estoque/movimentacoes");
+}
+
+export function registrarAjusteEstoque(corpo: {
+  insumo_id: number;
+  quantidade_diferenca: number;
+  motivo: string;
+}) {
+  return requisitar<MovimentacaoEstoque>("/estoque/ajustes", { metodo: "POST", corpo });
+}
+
+export function registrarPerdaEstoque(corpo: {
+  insumo_id: number;
+  quantidade: number;
+  motivo: string;
+}) {
+  return requisitar<MovimentacaoEstoque>("/estoque/perdas", { metodo: "POST", corpo });
+}
+
+export function confirmarConferenciaEstoque(corpo: { data?: string; observacao?: string }) {
+  return requisitar<ConferenciaEstoque>("/estoque/conferencias-diarias", { metodo: "POST", corpo });
+}
+
+export function listarConferenciasEstoque() {
+  return requisitar<ConferenciaEstoque[]>("/estoque/conferencias-diarias");
 }

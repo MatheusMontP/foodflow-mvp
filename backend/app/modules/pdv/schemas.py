@@ -22,6 +22,10 @@ class VendaCriar(BaseModel):
     observacao: str | None = Field(default=None, max_length=500)
 
 
+class VendaCancelar(BaseModel):
+    motivo: str = Field(min_length=3, max_length=500)
+
+
 class ItemVendaResponse(BaseModel):
     id: int
     venda_id: int
@@ -50,6 +54,9 @@ class VendaResponse(BaseModel):
     total: Decimal
     promocoes_resumo: str | None
     observacao: str | None
+    motivo_cancelamento: str | None
+    cancelado_por_id: int | None
+    cancelado_em: datetime | None
     criado_em: datetime
     itens: list[ItemVendaResponse]
 
