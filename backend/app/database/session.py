@@ -1,6 +1,6 @@
 from collections.abc import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
@@ -21,6 +21,7 @@ def criar_banco() -> None:
     import app.database.models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    _garantir_colunas_sqlite()
 
 
 def criar_dados_iniciais() -> None:
@@ -39,3 +40,30 @@ def obter_sessao() -> Generator[Session, None, None]:
         yield sessao
     finally:
         sessao.close()
+
+
+def _garantir_colunas_sqlite() -> None:
+    if not settings.database_url.startswith("sqlite"):
+        return
+
+    colunas = {
+        "vendas": {
+            "desconto_total": "NUMERIC(12, 2) NOT NULL DEFAULT 0",
+            "promocoes_resumo": "TEXT",
+        },
+        "itens_venda": {
+            "desconto_total": "NUMERIC(12, 2) NOT NULL DEFAULT 0",
+            "promocao_resumo": "TEXT",
+        },
+    }
+    with engine.begin() as conexao:
+        for tabela, definicoes in colunas.items():
+            existentes = {
+                linha[1]
+                for linha in conexao.execute(text(f"PRAGMA table_info({tabela})")).fetchall()
+            }
+            if not existentes:
+                continue
+            for coluna, definicao in definicoes.items():
+                if coluna not in existentes:
+                    conexao.execute(text(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {definicao}"))

@@ -16,6 +16,7 @@ from app.modules.pdv.repository import contar_vendas_por_prefixo, listar_vendas,
 from app.modules.pdv.schemas import VendaCriar
 from app.modules.produtos.repository import buscar_produto_por_id, listar_produtos_ativos
 from app.modules.produtos.service import produto_para_response
+from app.modules.promocoes.service import ItemPromocaoContexto, calcular_promocoes_venda
 
 
 CENTAVOS = Decimal("0.01")
@@ -43,8 +44,9 @@ def obter_vendas(sessao: Session) -> list[Venda]:
 
 def finalizar_venda(sessao: Session, dados: VendaCriar, usuario_id: int | None) -> Venda:
     itens_venda: list[ItemVenda] = []
+    contextos_promocao: list[ItemPromocaoContexto] = []
     baixas_agregadas: dict[int, Decimal] = {}
-    total = Decimal("0")
+    subtotal = Decimal("0")
 
     for item_dados in dados.itens:
         produto = buscar_produto_por_id(sessao, item_dados.produto_id)
@@ -69,7 +71,15 @@ def finalizar_venda(sessao: Session, dados: VendaCriar, usuario_id: int | None) 
         quantidade = item_dados.quantidade
         preco_unitario = Decimal(simulacao["preco_total"])
         preco_total = (preco_unitario * quantidade).quantize(CENTAVOS, rounding=ROUND_HALF_UP)
-        total += preco_total
+        subtotal += preco_total
+        contextos_promocao.append(
+            ItemPromocaoContexto(
+                produto_id=produto.id,
+                categoria_id=produto.categoria_id,
+                subtotal=preco_total,
+                quantidade=quantidade,
+            )
+        )
 
         for baixa in simulacao["baixas_previstas"]:
             insumo_id = baixa["insumo_id"]
@@ -91,14 +101,29 @@ def finalizar_venda(sessao: Session, dados: VendaCriar, usuario_id: int | None) 
         )
 
     _validar_estoque_agregado(sessao, baixas_agregadas)
+    descontos_itens, desconto_total, promocoes_aplicadas = calcular_promocoes_venda(
+        sessao,
+        contextos_promocao,
+        subtotal,
+    )
+
+    for indice, item in enumerate(itens_venda):
+        desconto_item = descontos_itens[indice].quantize(CENTAVOS, rounding=ROUND_HALF_UP)
+        item.desconto_total = desconto_item
+        item.preco_total = (Decimal(item.preco_total) - desconto_item).quantize(CENTAVOS, rounding=ROUND_HALF_UP)
+        item.promocao_resumo = _resumo_promocoes_item(promocoes_aplicadas, indice)
+
+    total = (subtotal - desconto_total).quantize(CENTAVOS, rounding=ROUND_HALF_UP)
 
     venda = Venda(
         numero_pedido=_proximo_numero_pedido(sessao),
         usuario_id=usuario_id,
         forma_pagamento=dados.forma_pagamento,
         status=StatusVenda.CONCLUIDA,
-        subtotal=total.quantize(CENTAVOS, rounding=ROUND_HALF_UP),
-        total=total.quantize(CENTAVOS, rounding=ROUND_HALF_UP),
+        subtotal=subtotal.quantize(CENTAVOS, rounding=ROUND_HALF_UP),
+        desconto_total=desconto_total.quantize(CENTAVOS, rounding=ROUND_HALF_UP),
+        total=total,
+        promocoes_resumo=_resumo_promocoes_venda(promocoes_aplicadas),
         observacao=dados.observacao,
         itens=itens_venda,
     )
@@ -172,3 +197,16 @@ def _resumo_remocoes(produto, remocao_ids: list[int]) -> str | None:
         if item.id in remocao_ids and item.removivel
     ]
     return ", ".join(nomes) if nomes else None
+
+
+def _resumo_promocoes_item(promocoes_aplicadas, indice: int) -> str | None:
+    nomes = [promocao.nome for promocao in promocoes_aplicadas if promocao.item_indice == indice]
+    nomes.extend(promocao.nome for promocao in promocoes_aplicadas if promocao.item_indice is None)
+    return ", ".join(dict.fromkeys(nomes)) if nomes else None
+
+
+def _resumo_promocoes_venda(promocoes_aplicadas) -> str | None:
+    if not promocoes_aplicadas:
+        return None
+    nomes = [promocao.nome for promocao in promocoes_aplicadas]
+    return ", ".join(dict.fromkeys(nomes))

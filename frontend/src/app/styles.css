@@ -209,6 +209,22 @@ h1 {
   border-top: 1px solid #e2dacd;
 }
 
+.sale-summary,
+.promotion-list {
+  display: grid;
+  gap: 8px;
+}
+
+.sale-summary small {
+  color: #4d554f;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.promotion-list {
+  margin-top: 16px;
+}
+
 .checkout-box button {
   display: inline-flex;
   align-items: center;

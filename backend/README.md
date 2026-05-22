@@ -53,6 +53,10 @@ API:
 - `GET /api/pdv/cardapio`
 - `POST /api/pdv/vendas`
 - `GET /api/pdv/vendas`
+- `POST /api/promocoes`
+- `GET /api/promocoes`
+- `PUT /api/promocoes/{promocao_id}`
+- `PATCH /api/promocoes/{promocao_id}/status`
 
 ## Fluxo inicial de autenticacao
 
@@ -101,3 +105,9 @@ O custo da ficha tecnica e a margem estimada sao calculados a partir do custo at
 ## PDV e vendas
 
 O PDV usa `GET /api/pdv/cardapio` para listar produtos ativos, incluindo os bloqueados por estoque. Para finalizar uma venda, envie os itens para `POST /api/pdv/vendas` com forma de pagamento. O sistema gera numero diario no formato `YYYYMMDD-001`, grava os itens vendidos e registra movimentacoes de estoque do tipo `SAIDA_VENDA`.
+
+## Promocoes
+
+Promocoes podem ser cadastradas por produto, categoria ou venda inteira. O desconto pode ser percentual ou valor fixo, com periodo opcional de vigencia.
+
+Na finalizacao da venda, o sistema aplica promocoes automaticamente usando a prioridade `produto > categoria > venda inteira`. Quando houver empate no mesmo nivel, vence a promocao que gera maior economia. Promocoes inativas ou fora do periodo nao alteram o total.

@@ -2,7 +2,7 @@
 
 MVP web para pequenos negocios alimenticios, com autenticacao por papel, cadastros operacionais, ficha tecnica, controle de estoque por insumos e PDV responsivo.
 
-O projeto esta sendo construido em blocos incrementais. O estado atual ja cobre ate o **Bloco 6 - PDV e venda**.
+O projeto esta sendo construido em blocos incrementais. O estado atual ja cobre ate o **Bloco 7 - Promocoes**.
 
 ## Status dos blocos
 
@@ -12,7 +12,8 @@ O projeto esta sendo construido em blocos incrementais. O estado atual ja cobre 
 - Bloco 4 - Produtos, ficha tecnica e disponibilidade: concluido.
 - Bloco 5 - Adicionais, remocoes e observacoes: concluido.
 - Bloco 6 - PDV e venda: concluido.
-- Bloco 7 - Promocoes: proximo bloco.
+- Bloco 7 - Promocoes: concluido.
+- Bloco 8 - Cancelamento e movimentacoes de estoque: proximo bloco.
 
 ## Tecnologias
 
@@ -211,6 +212,17 @@ Adicionais:
 - Baixa automatica de estoque.
 - Movimentacao de estoque do tipo `SAIDA_VENDA`.
 
+### Promocoes
+
+- Cadastro de promocoes por produto, categoria ou venda inteira.
+- Desconto percentual ou valor fixo.
+- Periodo opcional de vigencia.
+- Ativacao e inativacao de promocoes.
+- Aplicacao automatica na finalizacao da venda.
+- Prioridade: produto > categoria > venda inteira.
+- Empate no mesmo nivel resolvido pela maior economia.
+- Promocoes inativas ou fora do periodo nao alteram a venda.
+
 ## Principais rotas da API
 
 ### Saude
@@ -274,6 +286,13 @@ Adicionais:
 - `POST /api/pdv/vendas`
 - `GET /api/pdv/vendas`
 
+### Promocoes
+
+- `POST /api/promocoes`
+- `GET /api/promocoes`
+- `PUT /api/promocoes/{promocao_id}`
+- `PATCH /api/promocoes/{promocao_id}/status`
+
 ## Fluxo rapido para demonstracao
 
 1. Inicie backend e frontend.
@@ -289,4 +308,4 @@ Adicionais:
 
 - O arquivo `backend/foodflow.db` fica fora do Git por ser banco local de desenvolvimento.
 - O arquivo `backend/.env` tambem fica fora do Git.
-- O proximo bloco planejado e o **Bloco 7 - Promocoes**, com descontos por produto, categoria e venda inteira.
+- O proximo bloco planejado e o **Bloco 8 - Cancelamento e movimentacoes de estoque**.

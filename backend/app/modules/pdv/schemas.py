@@ -29,7 +29,9 @@ class ItemVendaResponse(BaseModel):
     nome_produto: str
     quantidade: int
     preco_unitario: Decimal
+    desconto_total: Decimal
     preco_total: Decimal
+    promocao_resumo: str | None
     adicionais_resumo: str | None
     remocoes_resumo: str | None
     observacao: str | None
@@ -44,7 +46,9 @@ class VendaResponse(BaseModel):
     forma_pagamento: FormaPagamento
     status: StatusVenda
     subtotal: Decimal
+    desconto_total: Decimal
     total: Decimal
+    promocoes_resumo: str | None
     observacao: str | None
     criado_em: datetime
     itens: list[ItemVendaResponse]

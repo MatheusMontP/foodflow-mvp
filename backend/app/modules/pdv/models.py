@@ -34,7 +34,9 @@ class Venda(Base):
         nullable=False,
     )
     subtotal: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    desconto_total: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
     total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    promocoes_resumo: Mapped[str | None] = mapped_column(Text, nullable=True)
     observacao: Mapped[str | None] = mapped_column(Text, nullable=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -50,7 +52,9 @@ class ItemVenda(Base):
     nome_produto: Mapped[str] = mapped_column(String(140), nullable=False)
     quantidade: Mapped[int] = mapped_column(Integer, nullable=False)
     preco_unitario: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    desconto_total: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
     preco_total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    promocao_resumo: Mapped[str | None] = mapped_column(Text, nullable=True)
     adicionais_resumo: Mapped[str | None] = mapped_column(Text, nullable=True)
     remocoes_resumo: Mapped[str | None] = mapped_column(Text, nullable=True)
     observacao: Mapped[str | None] = mapped_column(Text, nullable=True)

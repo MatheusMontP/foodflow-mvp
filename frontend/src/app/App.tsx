@@ -1,6 +1,7 @@
 import {
   Activity,
   BadgeCheck,
+  BadgePercent,
   Boxes,
   Calculator,
   CirclePlus,
@@ -23,17 +24,21 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import {
   atualizarStatusProduto,
+  atualizarStatusPromocao,
   Adicional,
   buscarUsuarioAtual,
   cadastrarAdicional,
+  cadastrarPromocao,
   cadastrarProduto,
   Categoria,
   consultarCardapioPDV,
   criarPrimeiroOwner,
+  EscopoPromocao,
   finalizarVenda,
   FormaPagamento,
   Insumo,
   ItemFichaTecnicaCriar,
+  listarPromocoes,
   listarCategorias,
   listarAdicionais,
   listarInsumos,
@@ -41,6 +46,8 @@ import {
   listarUnidadesMedida,
   listarVariacoesProduto,
   Produto,
+  Promocao,
+  TipoDesconto,
   recalcularProduto,
   salvarFichaTecnica,
   StatusProduto,
@@ -77,6 +84,7 @@ export function App() {
   const [insumos, setInsumos] = useState<Insumo[]>([]);
   const [unidades, setUnidades] = useState<UnidadeMedida[]>([]);
   const [adicionais, setAdicionais] = useState<Adicional[]>([]);
+  const [promocoes, setPromocoes] = useState<Promocao[]>([]);
   const [variacoes, setVariacoes] = useState<VariacoesProduto | null>(null);
   const [simulacao, setSimulacao] = useState<SimulacaoItem | null>(null);
   const [produtoSelecionadoId, setProdutoSelecionadoId] = useState<number | null>(null);
@@ -115,6 +123,16 @@ export function App() {
     quantidade: 1,
     unidade_medida_id: 1,
   });
+  const [promocaoForm, setPromocaoForm] = useState({
+    nome: "",
+    escopo: "PRODUTO" as EscopoPromocao,
+    tipo_desconto: "PERCENTUAL" as TipoDesconto,
+    valor: 0,
+    produto_id: 1,
+    categoria_id: 1,
+    inicio_em: "",
+    fim_em: "",
+  });
   const [simulacaoForm, setSimulacaoForm] = useState({
     adicional_ids: [] as number[],
     remocao_item_ficha_tecnica_ids: [] as number[],
@@ -139,6 +157,11 @@ export function App() {
   const podeCriarProduto = categorias.length > 0 && !carregando;
   const podeSalvarFicha = Boolean(produtoSelecionado) && insumos.length > 0 && unidades.length > 0 && !carregando;
   const podeCriarAdicional = categorias.length > 0 && insumos.length > 0 && unidades.length > 0 && !carregando;
+  const podeCriarPromocao =
+    !carregando &&
+    ((promocaoForm.escopo === "PRODUTO" && produtos.length > 0) ||
+      (promocaoForm.escopo === "CATEGORIA" && categorias.length > 0) ||
+      promocaoForm.escopo === "VENDA");
 
   useEffect(() => {
     async function validarSessao() {
@@ -217,6 +240,7 @@ export function App() {
     setInsumos([]);
     setUnidades([]);
     setAdicionais([]);
+    setPromocoes([]);
     setCardapioProdutos([]);
     setCardapioCategorias([]);
     setVariacoes(null);
@@ -243,12 +267,13 @@ export function App() {
         return;
       }
 
-      const [categoriasDados, insumosDados, unidadesDados, produtosDados, adicionaisDados] = await Promise.all([
+      const [categoriasDados, insumosDados, unidadesDados, produtosDados, adicionaisDados, promocoesDados] = await Promise.all([
         listarCategorias(),
         listarInsumos(),
         listarUnidadesMedida(),
         listarProdutos(),
         listarAdicionais(),
+        listarPromocoes(),
       ]);
 
       setCategorias(categoriasDados);
@@ -256,6 +281,7 @@ export function App() {
       setUnidades(unidadesDados);
       setProdutos(produtosDados);
       setAdicionais(adicionaisDados);
+      setPromocoes(promocoesDados);
       setProdutoSelecionadoId((atual) => atual ?? cardapio.produtos[0]?.id ?? produtosDados[0]?.id ?? null);
       setProdutoForm((atual) => ({ ...atual, categoria_id: categoriasDados[0]?.id ?? 0 }));
       setItemForm((atual) => ({
@@ -268,6 +294,11 @@ export function App() {
         categoria_id: categoriasDados[0]?.id ?? 0,
         insumo_id: insumosDados[0]?.id ?? 0,
         unidade_medida_id: unidadesDados[0]?.id ?? 0,
+      }));
+      setPromocaoForm((atual) => ({
+        ...atual,
+        produto_id: produtosDados[0]?.id ?? 0,
+        categoria_id: categoriasDados[0]?.id ?? 0,
       }));
 
       if (!categoriasDados.length) {
@@ -384,6 +415,59 @@ export function App() {
       }
     } catch (erro) {
       setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel cadastrar adicional.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  async function aoCadastrarPromocao(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    if (!podeCriarPromocao) {
+      setMensagem("Cadastre produtos ou categorias antes de criar esta promocao.");
+      return;
+    }
+
+    setCarregando(true);
+    try {
+      const promocao = await cadastrarPromocao({
+        nome: promocaoForm.nome,
+        escopo: promocaoForm.escopo,
+        tipo_desconto: promocaoForm.tipo_desconto,
+        valor: promocaoForm.valor,
+        ativa: true,
+        produto_id: promocaoForm.escopo === "PRODUTO" ? promocaoForm.produto_id : undefined,
+        categoria_id: promocaoForm.escopo === "CATEGORIA" ? promocaoForm.categoria_id : undefined,
+        inicio_em: promocaoForm.inicio_em || undefined,
+        fim_em: promocaoForm.fim_em || undefined,
+      });
+
+      setPromocoes((atuais) => [...atuais, promocao].sort((a, b) => a.nome.localeCompare(b.nome)));
+      setPromocaoForm({
+        nome: "",
+        escopo: "PRODUTO",
+        tipo_desconto: "PERCENTUAL",
+        valor: 0,
+        produto_id: produtos[0]?.id ?? 0,
+        categoria_id: categorias[0]?.id ?? 0,
+        inicio_em: "",
+        fim_em: "",
+      });
+      setMensagem("Promocao criada. Ela sera aplicada automaticamente no PDV quando estiver vigente.");
+    } catch (erro) {
+      setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel cadastrar promocao.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  async function aoAlternarPromocao(promocao: Promocao) {
+    setCarregando(true);
+    try {
+      const atualizada = await atualizarStatusPromocao(promocao.id, !promocao.ativa);
+      setPromocoes((atuais) => atuais.map((item) => (item.id === atualizada.id ? atualizada : item)));
+      setMensagem(`Promocao ${atualizada.ativa ? "ativada" : "inativada"}.`);
+    } catch (erro) {
+      setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel alterar a promocao.");
     } finally {
       setCarregando(false);
     }
@@ -832,7 +916,13 @@ export function App() {
                   Finalizar venda
                 </button>
                 {vendaFinalizada ? (
-                  <p className="form-note">Pedido {vendaFinalizada.numero_pedido} concluido.</p>
+                  <div className="sale-summary">
+                    <p className="form-note">Pedido {vendaFinalizada.numero_pedido} concluido.</p>
+                    <small>
+                      Subtotal {formatarMoeda(vendaFinalizada.subtotal)} - desconto {formatarMoeda(vendaFinalizada.desconto_total)} - total {formatarMoeda(vendaFinalizada.total)}
+                    </small>
+                    {vendaFinalizada.promocoes_resumo ? <small>{vendaFinalizada.promocoes_resumo}</small> : null}
+                  </div>
                 ) : null}
               </div>
             </aside>
@@ -1132,7 +1222,7 @@ export function App() {
                 <div>
                   <strong>{adicional.nome}</strong>
                   <small>
-                    {formatarMoeda(adicional.preco_extra)} · {adicional.categoria_ids.map((id) => nomeCategoria(id, categorias)).join(", ")}
+                    {formatarMoeda(adicional.preco_extra)} - {adicional.categoria_ids.map((id) => nomeCategoria(id, categorias)).join(", ")}
                   </small>
                 </div>
                 <span className={`mini-status ${adicional.disponivel ? "ok" : "blocked"}`}>
@@ -1141,6 +1231,129 @@ export function App() {
               </div>
             ))}
             {!adicionais.length ? <p className="empty">Nenhum adicional cadastrado ainda.</p> : null}
+          </div>
+        </section>
+
+        <section className="panel form-panel wide-panel">
+          <div className="panel-title">
+            <BadgePercent size={20} aria-hidden="true" />
+            <h2>Promocoes</h2>
+          </div>
+
+          <form className="form-grid" onSubmit={aoCadastrarPromocao}>
+            <label>
+              Nome
+              <input
+                value={promocaoForm.nome}
+                onChange={(evento) => setPromocaoForm({ ...promocaoForm, nome: evento.target.value })}
+              />
+            </label>
+            <label>
+              Escopo
+              <select
+                value={promocaoForm.escopo}
+                onChange={(evento) =>
+                  setPromocaoForm({ ...promocaoForm, escopo: evento.target.value as typeof promocaoForm.escopo })
+                }
+              >
+                <option value="PRODUTO">Produto</option>
+                <option value="CATEGORIA">Categoria</option>
+                <option value="VENDA">Venda inteira</option>
+              </select>
+            </label>
+            <label>
+              Tipo
+              <select
+                value={promocaoForm.tipo_desconto}
+                onChange={(evento) =>
+                  setPromocaoForm({
+                    ...promocaoForm,
+                    tipo_desconto: evento.target.value as typeof promocaoForm.tipo_desconto,
+                  })
+                }
+              >
+                <option value="PERCENTUAL">Percentual</option>
+                <option value="VALOR_FIXO">Valor fixo</option>
+              </select>
+            </label>
+            <label>
+              Valor
+              <input
+                inputMode="decimal"
+                type="text"
+                value={promocaoForm.valor}
+                onFocus={(evento) => evento.target.select()}
+                onChange={(evento) => setPromocaoForm({ ...promocaoForm, valor: Number(evento.target.value) })}
+              />
+            </label>
+            {promocaoForm.escopo === "PRODUTO" ? (
+              <label>
+                Produto
+                <select
+                  value={promocaoForm.produto_id}
+                  onChange={(evento) => setPromocaoForm({ ...promocaoForm, produto_id: Number(evento.target.value) })}
+                  disabled={!produtos.length}
+                >
+                  {produtos.map((produto) => (
+                    <option key={produto.id} value={produto.id}>
+                      {produto.nome}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {promocaoForm.escopo === "CATEGORIA" ? (
+              <label>
+                Categoria
+                <select
+                  value={promocaoForm.categoria_id}
+                  onChange={(evento) => setPromocaoForm({ ...promocaoForm, categoria_id: Number(evento.target.value) })}
+                  disabled={!categorias.length}
+                >
+                  {categorias.map((categoria) => (
+                    <option key={categoria.id} value={categoria.id}>
+                      {categoria.nome}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <label>
+              Inicio
+              <input
+                type="datetime-local"
+                value={promocaoForm.inicio_em}
+                onChange={(evento) => setPromocaoForm({ ...promocaoForm, inicio_em: evento.target.value })}
+              />
+            </label>
+            <label>
+              Fim
+              <input
+                type="datetime-local"
+                value={promocaoForm.fim_em}
+                onChange={(evento) => setPromocaoForm({ ...promocaoForm, fim_em: evento.target.value })}
+              />
+            </label>
+            <button type="submit" disabled={!podeCriarPromocao}>
+              Criar promocao
+            </button>
+          </form>
+
+          <div className="promotion-list">
+            {promocoes.map((promocao) => (
+              <div className="data-row" key={promocao.id}>
+                <div>
+                  <strong>{promocao.nome}</strong>
+                  <small>
+                    {rotuloPromocao(promocao, produtos, categorias)} - {formatarDesconto(promocao.tipo_desconto, promocao.valor)}
+                  </small>
+                </div>
+                <button type="button" onClick={() => aoAlternarPromocao(promocao)} disabled={carregando}>
+                  {promocao.ativa ? "Inativar" : "Ativar"}
+                </button>
+              </div>
+            ))}
+            {!promocoes.length ? <p className="empty">Nenhuma promocao cadastrada ainda.</p> : null}
           </div>
         </section>
 
@@ -1278,6 +1491,20 @@ function nomeCategoria(categoriaId: number, categorias: Categoria[]) {
 
 function nomeUnidade(unidadeId: number, unidades: UnidadeMedida[]) {
   return unidades.find((unidade) => unidade.id === unidadeId)?.sigla ?? "";
+}
+
+function rotuloPromocao(promocao: Promocao, produtos: Produto[], categorias: Categoria[]) {
+  if (promocao.escopo === "PRODUTO") {
+    return `Produto: ${produtos.find((produto) => produto.id === promocao.produto_id)?.nome ?? promocao.produto_id}`;
+  }
+  if (promocao.escopo === "CATEGORIA") {
+    return `Categoria: ${nomeCategoria(promocao.categoria_id ?? 0, categorias)}`;
+  }
+  return "Venda inteira";
+}
+
+function formatarDesconto(tipo: string, valor: string) {
+  return tipo === "PERCENTUAL" ? `${Number(valor).toLocaleString("pt-BR")}%` : formatarMoeda(valor);
 }
 
 function atuaisComQuantidadeValida(itens: ItemCarrinho[]) {

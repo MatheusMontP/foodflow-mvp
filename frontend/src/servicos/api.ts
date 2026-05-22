@@ -208,7 +208,9 @@ export type ItemVenda = {
   nome_produto: string;
   quantidade: number;
   preco_unitario: string;
+  desconto_total: string;
   preco_total: string;
+  promocao_resumo: string | null;
   adicionais_resumo: string | null;
   remocoes_resumo: string | null;
   observacao: string | null;
@@ -221,10 +223,41 @@ export type Venda = {
   forma_pagamento: FormaPagamento;
   status: "CONCLUIDA" | "CANCELADA";
   subtotal: string;
+  desconto_total: string;
   total: string;
+  promocoes_resumo: string | null;
   observacao: string | null;
   criado_em: string;
   itens: ItemVenda[];
+};
+
+export type EscopoPromocao = "PRODUTO" | "CATEGORIA" | "VENDA";
+export type TipoDesconto = "PERCENTUAL" | "VALOR_FIXO";
+
+export type Promocao = {
+  id: number;
+  nome: string;
+  escopo: EscopoPromocao;
+  tipo_desconto: TipoDesconto;
+  valor: string;
+  produto_id: number | null;
+  categoria_id: number | null;
+  inicio_em: string | null;
+  fim_em: string | null;
+  ativa: boolean;
+  criado_em: string;
+};
+
+export type PromocaoCriar = {
+  nome: string;
+  escopo: EscopoPromocao;
+  tipo_desconto: TipoDesconto;
+  valor: number;
+  produto_id?: number;
+  categoria_id?: number;
+  inicio_em?: string;
+  fim_em?: string;
+  ativa: boolean;
 };
 
 export type Categoria = {
@@ -299,6 +332,21 @@ export function recalcularProduto(produtoId: number) {
 
 export function listarAdicionais() {
   return requisitar<Adicional[]>("/adicionais");
+}
+
+export function listarPromocoes() {
+  return requisitar<Promocao[]>("/promocoes");
+}
+
+export function cadastrarPromocao(corpo: PromocaoCriar) {
+  return requisitar<Promocao>("/promocoes", { metodo: "POST", corpo });
+}
+
+export function atualizarStatusPromocao(promocaoId: number, ativa: boolean) {
+  return requisitar<Promocao>(`/promocoes/${promocaoId}/status`, {
+    metodo: "PATCH",
+    corpo: { ativa },
+  });
 }
 
 export function cadastrarAdicional(corpo: AdicionalCriar) {
