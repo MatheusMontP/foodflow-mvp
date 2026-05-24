@@ -2,7 +2,7 @@
 
 MVP web para pequenos negocios alimenticios, com autenticacao por papel, cadastros operacionais, ficha tecnica, controle de estoque por insumos e PDV responsivo.
 
-O projeto esta sendo construido em blocos incrementais. O estado atual ja cobre ate o **Bloco 8 - Cancelamento e movimentacoes de estoque**.
+O projeto esta sendo construido em blocos incrementais. O estado atual ja cobre ate o **Bloco 9 - Dashboard, relatorios e exportacoes**.
 
 ## Status dos blocos
 
@@ -14,7 +14,8 @@ O projeto esta sendo construido em blocos incrementais. O estado atual ja cobre 
 - Bloco 6 - PDV e venda: concluido.
 - Bloco 7 - Promocoes: concluido.
 - Bloco 8 - Cancelamento e movimentacoes de estoque: concluido.
-- Bloco 9 - Dashboard, relatorios e exportacoes: proximo bloco.
+- Bloco 9 - Dashboard, relatorios e exportacoes: concluido.
+- Bloco 10 - Recomendacao por Programacao Linear: proximo bloco.
 
 ## Tecnologias
 
@@ -234,6 +235,15 @@ Adicionais:
 - Perdas/desperdicios exigem motivo e nao podem deixar estoque negativo.
 - Confirmacao diaria de estoque conferido.
 
+### Dashboard, relatorios e exportacoes
+
+- Dashboard gerencial com filtros por periodo.
+- Indicadores comerciais e operacionais.
+- Faturamento e ticket medio desconsideram vendas canceladas.
+- Produtos bloqueados aparecem no painel.
+- Alertas de estoque aparecem no painel.
+- Exportacao CSV e PDF usando os mesmos filtros do dashboard.
+
 ## Principais rotas da API
 
 ### Saude
@@ -309,6 +319,12 @@ Adicionais:
 - `PUT /api/promocoes/{promocao_id}`
 - `PATCH /api/promocoes/{promocao_id}/status`
 
+### Relatorios
+
+- `GET /api/relatorios/dashboard`
+- `GET /api/relatorios/exportacoes/dashboard.csv`
+- `GET /api/relatorios/exportacoes/dashboard.pdf`
+
 ## Fluxo rapido para demonstracao
 
 1. Inicie backend e frontend.
@@ -324,4 +340,4 @@ Adicionais:
 
 - O arquivo `backend/foodflow.db` fica fora do Git por ser banco local de desenvolvimento.
 - O arquivo `backend/.env` tambem fica fora do Git.
-- O proximo bloco planejado e o **Bloco 9 - Dashboard, relatorios e exportacoes**.
+- O proximo bloco planejado e o **Bloco 10 - Recomendacao por Programacao Linear**.

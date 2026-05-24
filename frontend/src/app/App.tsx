@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   CirclePlus,
   CreditCard,
+  Download,
   ListChecks,
   LogIn,
   LogOut,
@@ -27,6 +28,7 @@ import {
   atualizarStatusProduto,
   atualizarStatusPromocao,
   Adicional,
+  buscarDashboard,
   buscarUsuarioAtual,
   cadastrarAdicional,
   cadastrarPromocao,
@@ -37,7 +39,10 @@ import {
   confirmarConferenciaEstoque,
   consultarCardapioPDV,
   criarPrimeiroOwner,
+  Dashboard,
   EscopoPromocao,
+  exportarDashboardCsv,
+  exportarDashboardPdf,
   finalizarVenda,
   FormaPagamento,
   Insumo,
@@ -98,6 +103,7 @@ export function App() {
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoEstoque[]>([]);
   const [conferencias, setConferencias] = useState<ConferenciaEstoque[]>([]);
+  const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [variacoes, setVariacoes] = useState<VariacoesProduto | null>(null);
   const [simulacao, setSimulacao] = useState<SimulacaoItem | null>(null);
   const [produtoSelecionadoId, setProdutoSelecionadoId] = useState<number | null>(null);
@@ -163,6 +169,10 @@ export function App() {
   const [conferenciaForm, setConferenciaForm] = useState({
     data: "",
     observacao: "",
+  });
+  const [dashboardFiltros, setDashboardFiltros] = useState({
+    inicio: "",
+    fim: "",
   });
   const [simulacaoForm, setSimulacaoForm] = useState({
     adicional_ids: [] as number[],
@@ -275,6 +285,7 @@ export function App() {
     setVendas([]);
     setMovimentacoes([]);
     setConferencias([]);
+    setDashboard(null);
     setCardapioProdutos([]);
     setCardapioCategorias([]);
     setVariacoes(null);
@@ -311,6 +322,7 @@ export function App() {
         vendasDados,
         movimentacoesDados,
         conferenciasDados,
+        dashboardDados,
       ] = await Promise.all([
         listarCategorias(),
         listarInsumos(),
@@ -321,6 +333,7 @@ export function App() {
         listarVendas(),
         listarMovimentacoesEstoque(),
         listarConferenciasEstoque(),
+        buscarDashboard(dashboardFiltros.inicio || undefined, dashboardFiltros.fim || undefined),
       ]);
 
       setCategorias(categoriasDados);
@@ -332,6 +345,7 @@ export function App() {
       setVendas(vendasDados);
       setMovimentacoes(movimentacoesDados);
       setConferencias(conferenciasDados);
+      setDashboard(dashboardDados);
       setProdutoSelecionadoId((atual) => atual ?? cardapio.produtos[0]?.id ?? produtosDados[0]?.id ?? null);
       setProdutoForm((atual) => ({ ...atual, categoria_id: categoriasDados[0]?.id ?? 0 }));
       setItemForm((atual) => ({
@@ -589,6 +603,41 @@ export function App() {
       setMensagem(`Estoque conferido em ${conferencia.data}.`);
     } catch (erro) {
       setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel confirmar conferencia.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  async function aoAplicarFiltrosDashboard(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    setCarregando(true);
+    try {
+      const dados = await buscarDashboard(dashboardFiltros.inicio || undefined, dashboardFiltros.fim || undefined);
+      setDashboard(dados);
+      setMensagem("Dashboard atualizado.");
+    } catch (erro) {
+      setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel atualizar o dashboard.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  async function aoExportarDashboard(tipo: "csv" | "pdf") {
+    setCarregando(true);
+    try {
+      const blob =
+        tipo === "csv"
+          ? await exportarDashboardCsv(dashboardFiltros.inicio || undefined, dashboardFiltros.fim || undefined)
+          : await exportarDashboardPdf(dashboardFiltros.inicio || undefined, dashboardFiltros.fim || undefined);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `foodflow-dashboard.${tipo}`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setMensagem(`Exportacao ${tipo.toUpperCase()} gerada.`);
+    } catch (erro) {
+      setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel exportar.");
     } finally {
       setCarregando(false);
     }
@@ -1050,6 +1099,108 @@ export function App() {
           </section>
         ) : (
         <section className="workspace">
+        <section className="panel wide-panel">
+          <div className="panel-title">
+            <Activity size={20} aria-hidden="true" />
+            <h2>Dashboard</h2>
+            <button className="icon-button" type="button" onClick={carregarDados} disabled={carregando} title="Atualizar">
+              <RefreshCw size={18} aria-hidden="true" />
+            </button>
+          </div>
+
+          <form className="dashboard-filters" onSubmit={aoAplicarFiltrosDashboard}>
+            <label>
+              Inicio
+              <input
+                type="date"
+                value={dashboardFiltros.inicio}
+                onChange={(evento) => setDashboardFiltros({ ...dashboardFiltros, inicio: evento.target.value })}
+              />
+            </label>
+            <label>
+              Fim
+              <input
+                type="date"
+                value={dashboardFiltros.fim}
+                onChange={(evento) => setDashboardFiltros({ ...dashboardFiltros, fim: evento.target.value })}
+              />
+            </label>
+            <button type="submit" disabled={carregando}>
+              Filtrar
+            </button>
+            <button type="button" disabled={carregando} onClick={() => aoExportarDashboard("csv")}>
+              <Download size={18} aria-hidden="true" />
+              CSV
+            </button>
+            <button type="button" disabled={carregando} onClick={() => aoExportarDashboard("pdf")}>
+              <Download size={18} aria-hidden="true" />
+              PDF
+            </button>
+          </form>
+
+          {dashboard ? (
+            <>
+              <div className="status-grid dashboard-metrics">
+                <Metric label="Faturamento" value={formatarMoeda(dashboard.faturamento)} />
+                <Metric label="Ticket medio" value={formatarMoeda(dashboard.ticket_medio)} />
+                <Metric label="Vendas" value={String(dashboard.vendas_concluidas)} />
+                <Metric label="Canceladas" value={String(dashboard.vendas_canceladas)} />
+              </div>
+
+              <div className="dashboard-grid">
+                <div>
+                  <h3>Mais vendidos</h3>
+                  <div className="stack">
+                    {dashboard.produtos_mais_vendidos.map((produto) => (
+                      <div className="data-row" key={produto.produto_id}>
+                        <div>
+                          <strong>{produto.nome}</strong>
+                          <small>{produto.quantidade} itens - {formatarMoeda(produto.total)}</small>
+                        </div>
+                      </div>
+                    ))}
+                    {!dashboard.produtos_mais_vendidos.length ? <p className="empty">Sem vendas concluidas no periodo.</p> : null}
+                  </div>
+                </div>
+
+                <div>
+                  <h3>Produtos bloqueados</h3>
+                  <div className="stack">
+                    {dashboard.produtos_bloqueados.map((produto) => (
+                      <div className="data-row" key={produto.id}>
+                        <div>
+                          <strong>{produto.nome}</strong>
+                          <small>{produto.motivo}</small>
+                        </div>
+                      </div>
+                    ))}
+                    {!dashboard.produtos_bloqueados.length ? <p className="empty">Nenhum produto bloqueado.</p> : null}
+                  </div>
+                </div>
+
+                <div>
+                  <h3>Alertas de estoque</h3>
+                  <div className="stack">
+                    {dashboard.alertas_estoque.map((alerta) => (
+                      <div className="data-row" key={alerta.insumo_id}>
+                        <div>
+                          <strong>{alerta.nome}</strong>
+                          <small>
+                            {formatarQuantidade(alerta.quantidade_estoque)} em estoque - minimo {formatarQuantidade(alerta.estoque_minimo)}
+                          </small>
+                        </div>
+                      </div>
+                    ))}
+                    {!dashboard.alertas_estoque.length ? <p className="empty">Nenhum alerta de estoque.</p> : null}
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="empty">Carregando indicadores.</p>
+          )}
+        </section>
+
         <aside className="panel product-list" aria-label="Produtos cadastrados">
           <div className="panel-title">
             <Boxes size={20} aria-hidden="true" />

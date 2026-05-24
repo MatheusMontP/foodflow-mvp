@@ -62,6 +62,9 @@ API:
 - `GET /api/promocoes`
 - `PUT /api/promocoes/{promocao_id}`
 - `PATCH /api/promocoes/{promocao_id}/status`
+- `GET /api/relatorios/dashboard`
+- `GET /api/relatorios/exportacoes/dashboard.csv`
+- `GET /api/relatorios/exportacoes/dashboard.pdf`
 
 ## Fluxo inicial de autenticacao
 
@@ -122,3 +125,9 @@ Na finalizacao da venda, o sistema aplica promocoes automaticamente usando a pri
 Vendas podem ser canceladas em `POST /api/pdv/vendas/{venda_id}/cancelar` com motivo obrigatorio. A venda nao e apagada: o status passa para `CANCELADA`, o motivo fica registrado e o sistema cria movimentacoes `DEVOLUCAO_CANCELAMENTO` para devolver ao estoque as quantidades baixadas na venda.
 
 O estoque tambem suporta ajuste manual, perda/desperdicio com motivo obrigatorio e confirmacao diaria de conferencia. As movimentacoes ficam historicamente registradas em `GET /api/estoque/movimentacoes`.
+
+## Dashboard e relatorios
+
+O dashboard gerencial fica em `GET /api/relatorios/dashboard` e aceita filtros opcionais `inicio` e `fim` no formato `YYYY-MM-DD`. Os indicadores de faturamento, ticket medio e produtos mais vendidos ignoram vendas canceladas.
+
+As exportacoes `dashboard.csv` e `dashboard.pdf` usam os mesmos filtros da tela e incluem indicadores, produtos bloqueados e alertas de estoque.

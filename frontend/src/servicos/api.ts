@@ -21,6 +21,22 @@ async function requisitar<T>(caminho: string, opcoes: { metodo?: MetodoHttp; cor
   return resposta.json() as Promise<T>;
 }
 
+async function requisitarArquivo(caminho: string) {
+  const token = localStorage.getItem("foodflow_token");
+  const resposta = await fetch(`${API_URL}${caminho}`, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!resposta.ok) {
+    const erro = (await resposta.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(erro?.detail ?? "Nao foi possivel exportar o relatorio.");
+  }
+
+  return resposta.blob();
+}
+
 export async function buscarSaude() {
   const resposta = await fetch(`${API_URL}/health`);
 
@@ -262,6 +278,34 @@ export type ConferenciaEstoque = {
   criado_em: string;
 };
 
+export type Dashboard = {
+  inicio: string | null;
+  fim: string | null;
+  faturamento: string;
+  descontos: string;
+  vendas_concluidas: number;
+  vendas_canceladas: number;
+  ticket_medio: string;
+  itens_vendidos: number;
+  produtos_bloqueados: {
+    id: number;
+    nome: string;
+    motivo: string;
+  }[];
+  alertas_estoque: {
+    insumo_id: number;
+    nome: string;
+    quantidade_estoque: string;
+    estoque_minimo: string;
+  }[];
+  produtos_mais_vendidos: {
+    produto_id: number;
+    nome: string;
+    quantidade: number;
+    total: string;
+  }[];
+};
+
 export type EscopoPromocao = "PRODUTO" | "CATEGORIA" | "VENDA";
 export type TipoDesconto = "PERCENTUAL" | "VALOR_FIXO";
 
@@ -443,4 +487,24 @@ export function confirmarConferenciaEstoque(corpo: { data?: string; observacao?:
 
 export function listarConferenciasEstoque() {
   return requisitar<ConferenciaEstoque[]>("/estoque/conferencias-diarias");
+}
+
+function montarQueryPeriodo(inicio?: string, fim?: string) {
+  const params = new URLSearchParams();
+  if (inicio) params.set("inicio", inicio);
+  if (fim) params.set("fim", fim);
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
+export function buscarDashboard(inicio?: string, fim?: string) {
+  return requisitar<Dashboard>(`/relatorios/dashboard${montarQueryPeriodo(inicio, fim)}`);
+}
+
+export function exportarDashboardCsv(inicio?: string, fim?: string) {
+  return requisitarArquivo(`/relatorios/exportacoes/dashboard.csv${montarQueryPeriodo(inicio, fim)}`);
+}
+
+export function exportarDashboardPdf(inicio?: string, fim?: string) {
+  return requisitarArquivo(`/relatorios/exportacoes/dashboard.pdf${montarQueryPeriodo(inicio, fim)}`);
 }
