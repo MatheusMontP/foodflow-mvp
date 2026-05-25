@@ -73,6 +73,13 @@ import {
   Usuario,
   VariacoesProduto,
   Venda,
+  Recomendacao,
+  ItemRecomendacao,
+  BackupItem,
+  listarRecomendacoes,
+  gerarRecomendacao,
+  listarBackups,
+  gerarBackup,
 } from "../servicos/api";
 
 type ItemCarrinho = {
@@ -103,6 +110,8 @@ export function App() {
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoEstoque[]>([]);
   const [conferencias, setConferencias] = useState<ConferenciaEstoque[]>([]);
+  const [recomendacoes, setRecomendacoes] = useState<Recomendacao[]>([]);
+  const [backups, setBackups] = useState<BackupItem[]>([]);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [variacoes, setVariacoes] = useState<VariacoesProduto | null>(null);
   const [simulacao, setSimulacao] = useState<SimulacaoItem | null>(null);
@@ -285,6 +294,8 @@ export function App() {
     setVendas([]);
     setMovimentacoes([]);
     setConferencias([]);
+    setRecomendacoes([]);
+    setBackups([]);
     setDashboard(null);
     setCardapioProdutos([]);
     setCardapioCategorias([]);
@@ -323,6 +334,8 @@ export function App() {
         movimentacoesDados,
         conferenciasDados,
         dashboardDados,
+        recomendacoesDados,
+        backupsDados,
       ] = await Promise.all([
         listarCategorias(),
         listarInsumos(),
@@ -334,6 +347,8 @@ export function App() {
         listarMovimentacoesEstoque(),
         listarConferenciasEstoque(),
         buscarDashboard(dashboardFiltros.inicio || undefined, dashboardFiltros.fim || undefined),
+        listarRecomendacoes(),
+        listarBackups(),
       ]);
 
       setCategorias(categoriasDados);
@@ -346,6 +361,8 @@ export function App() {
       setMovimentacoes(movimentacoesDados);
       setConferencias(conferenciasDados);
       setDashboard(dashboardDados);
+      setRecomendacoes(recomendacoesDados);
+      setBackups(backupsDados);
       setProdutoSelecionadoId((atual) => atual ?? cardapio.produtos[0]?.id ?? produtosDados[0]?.id ?? null);
       setProdutoForm((atual) => ({ ...atual, categoria_id: categoriasDados[0]?.id ?? 0 }));
       setItemForm((atual) => ({
@@ -805,6 +822,33 @@ export function App() {
     }
   }
 
+  async function aoGerarRecomendacao() {
+    setCarregando(true);
+    try {
+      const dados = await gerarRecomendacao();
+      setRecomendacoes([dados, ...recomendacoes]);
+      setMensagem("Recomendacao gerada com sucesso!");
+    } catch (erro) {
+      setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel gerar a recomendacao.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  async function aoGerarBackup() {
+    setCarregando(true);
+    try {
+      const resposta = await gerarBackup();
+      setMensagem(resposta.mensagem);
+      const atualizados = await listarBackups();
+      setBackups(atualizados);
+    } catch (erro) {
+      setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel gerar o backup.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
   return (
     <main className="app-shell">
       <section className="topbar">
@@ -1099,7 +1143,19 @@ export function App() {
           </section>
         ) : (
         <section className="workspace">
-        <section className="panel wide-panel">
+        <nav className="module-nav wide-panel" aria-label="Modulos de gestao">
+          <a href="#dashboard">Dashboard</a>
+          <a href="#produtos">Produtos</a>
+          <a href="#ficha">Ficha tecnica</a>
+          <a href="#adicionais">Adicionais</a>
+          <a href="#promocoes">Promocoes</a>
+          <a href="#estoque">Estoque</a>
+          <a href="#variacoes">Variacoes</a>
+          <a href="#recomendacoes">Recomendacoes</a>
+          <a href="#backups">Backups</a>
+        </nav>
+
+        <section className="panel wide-panel" id="dashboard">
           <div className="panel-title">
             <Activity size={20} aria-hidden="true" />
             <h2>Dashboard</h2>
@@ -1201,7 +1257,7 @@ export function App() {
           )}
         </section>
 
-        <aside className="panel product-list" aria-label="Produtos cadastrados">
+        <aside className="panel product-list" id="produtos" aria-label="Produtos cadastrados">
           <div className="panel-title">
             <Boxes size={20} aria-hidden="true" />
             <h2>Produtos</h2>
@@ -1269,7 +1325,7 @@ export function App() {
           )}
         </section>
 
-        <section className="panel form-panel">
+        <section className="panel form-panel" id="novo-produto">
           <div className="panel-title">
             <PackagePlus size={20} aria-hidden="true" />
             <h2>Novo produto</h2>
@@ -1330,7 +1386,7 @@ export function App() {
           </form>
         </section>
 
-        <section className="panel form-panel">
+        <section className="panel form-panel" id="ficha">
           <div className="panel-title">
             <Calculator size={20} aria-hidden="true" />
             <h2>Ficha tecnica</h2>
@@ -1391,7 +1447,7 @@ export function App() {
           </form>
         </section>
 
-        <section className="panel form-panel">
+        <section className="panel form-panel" id="adicionais">
           <div className="panel-title">
             <CirclePlus size={20} aria-hidden="true" />
             <h2>Novo adicional</h2>
@@ -1482,7 +1538,7 @@ export function App() {
           </form>
         </section>
 
-        <section className="panel detail-panel">
+        <section className="panel detail-panel" id="adicionais-lista">
           <div className="panel-title">
             <Tags size={20} aria-hidden="true" />
             <h2>Adicionais cadastrados</h2>
@@ -1506,7 +1562,7 @@ export function App() {
           </div>
         </section>
 
-        <section className="panel form-panel wide-panel">
+        <section className="panel form-panel wide-panel" id="promocoes">
           <div className="panel-title">
             <BadgePercent size={20} aria-hidden="true" />
             <h2>Promocoes</h2>
@@ -1629,7 +1685,7 @@ export function App() {
           </div>
         </section>
 
-        <section className="panel form-panel wide-panel">
+        <section className="panel form-panel wide-panel" id="estoque">
           <div className="panel-title">
             <ClipboardCheck size={20} aria-hidden="true" />
             <h2>Rastreabilidade operacional</h2>
@@ -1786,7 +1842,7 @@ export function App() {
           </div>
         </section>
 
-        <section className="panel detail-panel wide-panel">
+        <section className="panel detail-panel wide-panel" id="variacoes">
           <div className="panel-title">
             <ListChecks size={20} aria-hidden="true" />
             <h2>Variacoes do item</h2>
@@ -1882,6 +1938,87 @@ export function App() {
             </div>
           ) : null}
         </section>
+
+        <section className="panel wide-panel" id="recomendacoes">
+          <div className="panel-title">
+            <ClipboardCheck size={20} aria-hidden="true" />
+            <h2>Recomendacoes (Programacao Linear)</h2>
+            <button className="icon-button" type="button" onClick={aoGerarRecomendacao} disabled={carregando} title="Gerar Recomendacao">
+              <CirclePlus size={18} aria-hidden="true" />
+            </button>
+          </div>
+          {recomendacoes.length > 0 ? (
+            <div className="stack table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Fator de Confianca</th>
+                    <th>Lucro Estimado</th>
+                    <th>Capacidade Usada</th>
+                    <th>Insumos Limitantes</th>
+                    <th>Itens</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recomendacoes.map((rec) => (
+                    <tr key={rec.id}>
+                      <td>{new Date(rec.criado_em).toLocaleDateString("pt-BR")} as {new Date(rec.criado_em).toLocaleTimeString("pt-BR")}</td>
+                      <td>{rec.fator_confianca}/10</td>
+                      <td>{formatarMoeda(rec.lucro_estimado)}</td>
+                      <td>{rec.capacidade_usada}/{rec.capacidade_total} itens</td>
+                      <td>{rec.insumos_limitantes || "Nenhum"}</td>
+                      <td>
+                        <small>
+                          {rec.itens.map(item => `${item.produto_nome} (${item.quantidade_recomendada} unid)`).join(", ")}
+                        </small>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+             <p className="empty">Nenhuma recomendacao gerada.</p>
+          )}
+        </section>
+
+        {usuario.papel === "OWNER" || usuario.papel === "MANAGER" ? (
+          <section className="panel wide-panel" id="backups">
+            <div className="panel-title">
+              <Boxes size={20} aria-hidden="true" />
+              <h2>Backups Locais</h2>
+              <button className="icon-button" type="button" onClick={aoGerarBackup} disabled={carregando} title="Gerar Backup Manual">
+                <Download size={18} aria-hidden="true" />
+              </button>
+            </div>
+            {backups.length > 0 ? (
+              <div className="stack table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Data</th>
+                      <th>Arquivo</th>
+                      <th>Tamanho</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {backups.map((bkp, i) => (
+                      <tr key={String(i)}>
+                        <td>{new Date(bkp.data_criacao).toLocaleString("pt-BR")}</td>
+                        <td>{bkp.nome_arquivo}</td>
+                        <td>{(bkp.tamanho_bytes / 1024).toFixed(2)} KB</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+                <p className="empty">Nenhum backup localizado.</p>
+            )}
+          </section>
+        ) : null}
+
         </section>
         )}
         </>

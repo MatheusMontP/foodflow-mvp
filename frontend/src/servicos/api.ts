@@ -508,3 +508,55 @@ export function exportarDashboardCsv(inicio?: string, fim?: string) {
 export function exportarDashboardPdf(inicio?: string, fim?: string) {
   return requisitarArquivo(`/relatorios/exportacoes/dashboard.pdf${montarQueryPeriodo(inicio, fim)}`);
 }
+export interface ItemRecomendacao {
+  id: number;
+  produto_id: number;
+  quantidade_recomendada: number;
+  demanda_considerada: number;
+  lucro_unitario: string;
+  produto_nome?: string;
+}
+
+export interface Recomendacao {
+  id: number;
+  fator_confianca: number;
+  lucro_estimado: string;
+  capacidade_usada: number;
+  capacidade_total: number;
+  periodo_recomendado: string;
+  insumos_limitantes?: string;
+  criado_em: string;
+  usuario_nome?: string;
+  itens: ItemRecomendacao[];
+}
+
+export interface BackupItem {
+  nome_arquivo: string;
+  tamanho_bytes: number;
+  data_criacao: string;
+}
+
+export function listarRecomendacoes() {
+  return requisitar<Recomendacao[]>("/recomendacoes/");
+}
+
+export function gerarRecomendacao() {
+  return requisitar<Recomendacao>("/recomendacoes/gerar", {
+    metodo: "POST",
+    corpo: {
+      capacidade_diaria: 150,
+      dias_analise_demanda: 7,
+      periodo_recomendado: "Hoje"
+    }
+  });
+}
+
+export function listarBackups() {
+  return requisitar<BackupItem[]>("/backups/");
+}
+
+export function gerarBackup() {
+  return requisitar<{ mensagem: string }>("/backups/gerar", {
+    metodo: "POST"
+  });
+}

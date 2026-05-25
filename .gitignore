@@ -1,5 +1,6 @@
 backend/.venv/
 backend/foodflow.db
+backend/backups_local/
 backend/.env
 backend/app/**/__pycache__/
 frontend/node_modules/
