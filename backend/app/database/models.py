@@ -6,6 +6,7 @@ from app.modules.insumos.models import ConversaoCompraInsumo, Insumo
 from app.modules.pdv.models import ItemVenda, Venda
 from app.modules.produtos.models import ItemFichaTecnica, Produto
 from app.modules.promocoes.models import Promocao
+from app.modules.recomendacoes.models import ItemRecomendacao, Recomendacao
 from app.modules.unidades.models import ConversaoUnidade, UnidadeMedida
 
 __all__ = [
@@ -23,6 +24,8 @@ __all__ = [
     "MovimentacaoEstoque",
     "Produto",
     "Promocao",
+    "Recomendacao",
+    "ItemRecomendacao",
     "UnidadeMedida",
     "Usuario",
     "Venda",

@@ -12,6 +12,7 @@ from app.modules.insumos.routes import router as insumos_router
 from app.modules.pdv.routes import router as pdv_router
 from app.modules.produtos.routes import router as produtos_router
 from app.modules.promocoes.routes import router as promocoes_router
+from app.modules.recomendacoes.routes import router as recomendacoes_router
 from app.modules.relatorios.routes import router as relatorios_router
 from app.modules.unidades.routes import router_conversoes, router_unidades
 from app.modules.usuarios.routes import router as usuarios_router
@@ -41,6 +42,7 @@ def criar_app() -> FastAPI:
     app.include_router(adicionais_router, prefix=settings.api_prefix)
     app.include_router(pdv_router, prefix=settings.api_prefix)
     app.include_router(promocoes_router, prefix=settings.api_prefix)
+    app.include_router(recomendacoes_router, prefix=settings.api_prefix)
     app.include_router(relatorios_router, prefix=settings.api_prefix)
 
     @app.on_event("startup")
