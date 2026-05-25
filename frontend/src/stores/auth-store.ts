@@ -22,12 +22,14 @@ export const useAuthStore = create<AuthState>()(
           token,
           isAuthenticated: true,
         }),
-      logout: () =>
+      logout: () => {
+        localStorage.removeItem("foodflow_token");
         set({
           usuario: null,
           token: null,
           isAuthenticated: false,
-        }),
+        });
+      },
     }),
     {
       name: "foodflow-auth",

@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Utensils, Eye, EyeOff, Loader2 } from "lucide-react";
+import { buscarUsuarioAtual, login as loginApi } from "@/servicos/api";
 
 export function LoginPage() {
   const { login } = useAuthStore();
@@ -26,26 +27,33 @@ export function LoginPage() {
     setLoading(true);
 
     try {
-      // Simula login para demo (substitua pela chamada real à API)
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Login demo - aceita qualquer email/senha
-      if (email && senha) {
-        login(
-          {
-            id: 1,
-            nome: "Administrador",
-            email: email,
-            tipo: "admin",
-            ativo: true,
-          },
-          "demo-token"
-        );
-      } else {
+      if (!email || !senha) {
         setError("Preencha todos os campos");
+        return;
       }
-    } catch {
-      setError("Erro ao fazer login. Verifique suas credenciais.");
+
+      const tokens = await loginApi({ email, senha });
+      localStorage.setItem("foodflow_token", tokens.access_token);
+      const usuarioAtual = await buscarUsuarioAtual();
+
+      login(
+        {
+          id: usuarioAtual.id,
+          nome: usuarioAtual.nome,
+          email: usuarioAtual.email,
+          tipo:
+            usuarioAtual.papel === "OWNER"
+              ? "admin"
+              : usuarioAtual.papel === "MANAGER"
+                ? "gerente"
+                : "caixa",
+          ativo: usuarioAtual.ativo,
+          created_at: usuarioAtual.criado_em,
+        },
+        tokens.access_token
+      );
+    } catch (erro) {
+      setError(erro instanceof Error ? erro.message : "Erro ao fazer login. Verifique suas credenciais.");
     } finally {
       setLoading(false);
     }
@@ -54,21 +62,18 @@ export function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="mb-8 flex flex-col items-center">
           <div className="flex size-16 items-center justify-center rounded-2xl bg-primary">
             <Utensils className="size-8 text-primary-foreground" />
           </div>
           <h1 className="mt-4 text-3xl font-bold">FoodFlow</h1>
-          <p className="mt-1 text-muted-foreground">Sistema de Gestão</p>
+          <p className="mt-1 text-muted-foreground">Sistema de Gestao</p>
         </div>
 
         <Card>
           <CardHeader className="text-center">
             <CardTitle>Entrar</CardTitle>
-            <CardDescription>
-              Acesse sua conta para continuar
-            </CardDescription>
+            <CardDescription>Acesse sua conta para continuar</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -111,9 +116,7 @@ export function LoginPage() {
                 </div>
               </div>
 
-              {error && (
-                <p className="text-sm text-destructive">{error}</p>
-              )}
+              {error && <p className="text-sm text-destructive">{error}</p>}
 
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (
@@ -128,7 +131,7 @@ export function LoginPage() {
             </form>
 
             <p className="mt-4 text-center text-xs text-muted-foreground">
-              Demo: use qualquer e-mail e senha
+              Owner local: owner@example.com / 12345678
             </p>
           </CardContent>
         </Card>

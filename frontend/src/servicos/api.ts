@@ -3,7 +3,7 @@ const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api";
 type MetodoHttp = "GET" | "POST" | "PUT" | "PATCH";
 
 async function requisitar<T>(caminho: string, opcoes: { metodo?: MetodoHttp; corpo?: unknown } = {}) {
-  const token = localStorage.getItem("foodflow_token");
+  const token = obterToken();
   const resposta = await fetch(`${API_URL}${caminho}`, {
     method: opcoes.metodo ?? "GET",
     headers: {
@@ -22,7 +22,7 @@ async function requisitar<T>(caminho: string, opcoes: { metodo?: MetodoHttp; cor
 }
 
 async function requisitarArquivo(caminho: string) {
-  const token = localStorage.getItem("foodflow_token");
+  const token = obterToken();
   const resposta = await fetch(`${API_URL}${caminho}`, {
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -35,6 +35,21 @@ async function requisitarArquivo(caminho: string) {
   }
 
   return resposta.blob();
+}
+
+function obterToken() {
+  const tokenDireto = localStorage.getItem("foodflow_token");
+  if (tokenDireto) return tokenDireto;
+
+  const authPersistido = localStorage.getItem("foodflow-auth");
+  if (!authPersistido) return null;
+
+  try {
+    const dados = JSON.parse(authPersistido) as { state?: { token?: string } };
+    return dados.state?.token ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function buscarSaude() {
