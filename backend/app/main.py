@@ -13,6 +13,7 @@ from app.modules.pdv.routes import router as pdv_router
 from app.modules.produtos.routes import router as produtos_router
 from app.modules.promocoes.routes import router as promocoes_router
 from app.modules.recomendacoes.routes import router as recomendacoes_router
+from app.modules.backups.routes import router as backups_router
 from app.modules.relatorios.routes import router as relatorios_router
 from app.modules.unidades.routes import router_conversoes, router_unidades
 from app.modules.usuarios.routes import router as usuarios_router
@@ -43,12 +44,20 @@ def criar_app() -> FastAPI:
     app.include_router(pdv_router, prefix=settings.api_prefix)
     app.include_router(promocoes_router, prefix=settings.api_prefix)
     app.include_router(recomendacoes_router, prefix=settings.api_prefix)
+    app.include_router(backups_router, prefix=settings.api_prefix)
     app.include_router(relatorios_router, prefix=settings.api_prefix)
 
     @app.on_event("startup")
     def ao_iniciar() -> None:
         criar_banco()
         criar_dados_iniciais()
+        
+        # Cria backup automatico ao iniciar o app (Bloco 11)
+        from app.modules.backups.service import BackupService
+        try:
+            BackupService().criar_backup()
+        except Exception as e:
+            print(f"Erro ao tentar realizar backup automático no startup: {e}")
 
     return app
 

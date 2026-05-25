@@ -3,9 +3,9 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.database.session import get_db
-from app.modules.auth.dependencies import get_current_user
-from app.modules.usuarios.models import Usuario
+from app.database.session import obter_sessao
+from app.modules.auth.dependencies import obter_usuario_atual
+from app.modules.auth.models import Usuario
 from app.modules.recomendacoes.schemas import RecomendacaoParametros, RecomendacaoResponse
 from app.modules.recomendacoes.service import RecomendacaoService
 
@@ -16,8 +16,8 @@ service = RecomendacaoService()
 @router.post("/gerar", response_model=RecomendacaoResponse, status_code=status.HTTP_201_CREATED)
 def gerar_recomendacao(
     parametros: RecomendacaoParametros,
-    db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
+    db: Session = Depends(obter_sessao),
+    current_user: Usuario = Depends(obter_usuario_atual),
 ):
     try:
         recomendacao = service.gerar_recomendacao(db, parametros, current_user.id)
@@ -35,8 +35,8 @@ def gerar_recomendacao(
 def listar_recomendacoes(
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
+    db: Session = Depends(obter_sessao),
+    current_user: Usuario = Depends(obter_usuario_atual),
 ):
     recs = service.listar_recomendacoes(db, skip, limit)
     for rec in recs:
@@ -51,8 +51,8 @@ def listar_recomendacoes(
 @router.get("/{recomendacao_id}", response_model=RecomendacaoResponse)
 def obter_recomendacao(
     recomendacao_id: int,
-    db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
+    db: Session = Depends(obter_sessao),
+    current_user: Usuario = Depends(obter_usuario_atual),
 ):
     recomendacao = service.obter_recomendacao_por_id(db, recomendacao_id)
     if not recomendacao:
