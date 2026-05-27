@@ -12,6 +12,14 @@ class InsumoCriar(BaseModel):
     estoque_minimo: Decimal = Field(default=0, ge=0, decimal_places=3)
 
 
+class InsumoAtualizar(BaseModel):
+    nome: str | None = Field(default=None, min_length=2, max_length=140)
+    unidade_medida_id: int | None = None
+    custo_unitario: Decimal | None = Field(default=None, ge=0, decimal_places=2)
+    estoque_minimo: Decimal | None = Field(default=None, ge=0, decimal_places=3)
+    ativo: bool | None = None
+
+
 class InsumoResponse(BaseModel):
     id: int
     nome: str

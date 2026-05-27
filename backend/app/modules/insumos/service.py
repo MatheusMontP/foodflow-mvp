@@ -15,7 +15,7 @@ from app.modules.insumos.repository import (
     salvar_conversao_compra,
     salvar_insumo,
 )
-from app.modules.insumos.schemas import ConversaoCompraInsumoCriar, InsumoCriar
+from app.modules.insumos.schemas import ConversaoCompraInsumoCriar, InsumoAtualizar, InsumoCriar
 from app.modules.unidades.repository import buscar_unidade_por_id
 
 
@@ -67,6 +67,48 @@ def criar_insumo(sessao: Session, dados: InsumoCriar, usuario_id: int | None) ->
 
 def obter_insumos(sessao: Session) -> list[Insumo]:
     return listar_insumos(sessao)
+
+
+def atualizar_insumo(sessao: Session, insumo_id: int, dados: InsumoAtualizar) -> Insumo:
+    insumo = buscar_insumo_por_id(sessao, insumo_id)
+    if insumo is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Insumo nao encontrado.",
+        )
+
+    if dados.nome is not None:
+        nome = dados.nome.strip()
+        existente = buscar_insumo_por_nome(sessao, nome)
+        if existente is not None and existente.id != insumo.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ja existe insumo com este nome.",
+            )
+        insumo.nome = nome
+
+    if dados.unidade_medida_id is not None:
+        unidade = buscar_unidade_por_id(sessao, dados.unidade_medida_id)
+        if unidade is None or not unidade.ativa:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Unidade de medida nao encontrada.",
+            )
+        insumo.unidade_medida_id = dados.unidade_medida_id
+
+    if dados.custo_unitario is not None:
+        insumo.custo_unitario = dados.custo_unitario
+
+    if dados.estoque_minimo is not None:
+        insumo.estoque_minimo = dados.estoque_minimo
+
+    if dados.ativo is not None:
+        insumo.ativo = dados.ativo
+
+    sessao.add(insumo)
+    sessao.commit()
+    sessao.refresh(insumo)
+    return insumo
 
 
 def criar_conversao_compra(

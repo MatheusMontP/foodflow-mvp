@@ -6,12 +6,20 @@ from pydantic import BaseModel, Field
 from app.modules.produtos.models import StatusProduto
 
 
+class ItemFichaTecnicaCriar(BaseModel):
+    insumo_id: int
+    quantidade: Decimal = Field(gt=0, decimal_places=3)
+    unidade_medida_id: int
+    removivel: bool = False
+
+
 class ProdutoCriar(BaseModel):
     nome: str = Field(min_length=2, max_length=140)
     descricao: str | None = None
     categoria_id: int
     preco_venda: Decimal = Field(ge=0, decimal_places=2)
     demanda_esperada_diaria: int = Field(default=0, ge=0)
+    itens_ficha_tecnica: list[ItemFichaTecnicaCriar] = Field(min_length=1)
 
 
 class ProdutoAtualizar(BaseModel):
@@ -20,21 +28,15 @@ class ProdutoAtualizar(BaseModel):
     categoria_id: int | None = None
     preco_venda: Decimal | None = Field(default=None, ge=0, decimal_places=2)
     demanda_esperada_diaria: int | None = Field(default=None, ge=0)
+    itens_ficha_tecnica: list[ItemFichaTecnicaCriar] | None = Field(default=None, min_length=1)
 
 
 class ProdutoStatusAtualizar(BaseModel):
     status: StatusProduto
 
 
-class ItemFichaTecnicaCriar(BaseModel):
-    insumo_id: int
-    quantidade: Decimal = Field(gt=0, decimal_places=3)
-    unidade_medida_id: int
-    removivel: bool = False
-
-
 class FichaTecnicaAtualizar(BaseModel):
-    itens: list[ItemFichaTecnicaCriar] = Field(default_factory=list)
+    itens: list[ItemFichaTecnicaCriar] = Field(min_length=1)
 
 
 class ItemFichaTecnicaResponse(BaseModel):

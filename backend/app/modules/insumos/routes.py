@@ -7,10 +7,12 @@ from app.modules.auth.models import PapelUsuario, Usuario
 from app.modules.insumos.schemas import (
     ConversaoCompraInsumoCriar,
     ConversaoCompraInsumoResponse,
+    InsumoAtualizar,
     InsumoCriar,
     InsumoResponse,
 )
 from app.modules.insumos.service import (
+    atualizar_insumo,
     criar_conversao_compra,
     criar_insumo,
     obter_conversoes_compra,
@@ -36,6 +38,16 @@ def listar_insumos(
     _: Usuario = Depends(exigir_papeis(PapelUsuario.OWNER, PapelUsuario.MANAGER)),
 ):
     return obter_insumos(sessao)
+
+
+@router.put("/{insumo_id}", response_model=InsumoResponse)
+def editar_insumo(
+    insumo_id: int,
+    dados: InsumoAtualizar,
+    sessao: Session = Depends(obter_sessao),
+    _: Usuario = Depends(exigir_papeis(PapelUsuario.OWNER, PapelUsuario.MANAGER)),
+):
+    return atualizar_insumo(sessao, insumo_id, dados)
 
 
 @router.post(

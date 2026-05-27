@@ -22,9 +22,12 @@ import { Search, ArrowUpCircle, ArrowDownCircle, AlertTriangle, Package, Loader2
 import {
   listarInsumos,
   listarMovimentacoesEstoque,
+  listarUnidadesMedida,
   type Insumo,
   type MovimentacaoEstoque,
+  type UnidadeMedida,
 } from "@/servicos/api";
+import { formatarQuantidade } from "@/lib/utils";
 
 function tipoLabel(tipo: MovimentacaoEstoque["tipo"]) {
   const labels = {
@@ -41,18 +44,21 @@ export function EstoquePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoEstoque[]>([]);
   const [insumos, setInsumos] = useState<Insumo[]>([]);
+  const [unidades, setUnidades] = useState<UnidadeMedida[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState("");
 
   async function carregarEstoque() {
     setLoading(true);
     try {
-      const [movimentacoesDados, insumosDados] = await Promise.all([
+      const [movimentacoesDados, insumosDados, unidadesDados] = await Promise.all([
         listarMovimentacoesEstoque(),
         listarInsumos(),
+        listarUnidadesMedida(),
       ]);
       setMovimentacoes(movimentacoesDados);
       setInsumos(insumosDados);
+      setUnidades(unidadesDados);
       setErro("");
     } catch (falha) {
       setErro(falha instanceof Error ? falha.message : "Nao foi possivel carregar o estoque.");
@@ -72,6 +78,16 @@ export function EstoquePage() {
     () => new Map(insumos.map((insumo) => [insumo.id, insumo])),
     [insumos]
   );
+
+  const unidadesPorId = useMemo(
+    () => new Map(unidades.map((unidade) => [unidade.id, unidade])),
+    [unidades]
+  );
+
+  const siglaPorInsumo = (insumoId: number) => {
+    const insumo = insumosPorId.get(insumoId);
+    return insumo ? unidadesPorId.get(insumo.unidade_medida_id)?.sigla : undefined;
+  };
 
   const filteredMovimentacoes = movimentacoes.filter((movimentacao) => {
     const insumo = insumosPorId.get(movimentacao.insumo_id);
@@ -183,9 +199,15 @@ export function EstoquePage() {
                             {tipoLabel(mov.tipo)}
                           </Badge>
                         </TableCell>
-                        <TableCell>{mov.quantidade}</TableCell>
-                        <TableCell>{mov.estoque_antes}</TableCell>
-                        <TableCell>{mov.estoque_depois}</TableCell>
+                        <TableCell>
+                          {formatarQuantidade(mov.quantidade, siglaPorInsumo(mov.insumo_id))}
+                        </TableCell>
+                        <TableCell>
+                          {formatarQuantidade(mov.estoque_antes, siglaPorInsumo(mov.insumo_id))}
+                        </TableCell>
+                        <TableCell>
+                          {formatarQuantidade(mov.estoque_depois, siglaPorInsumo(mov.insumo_id))}
+                        </TableCell>
                         <TableCell className="text-muted-foreground">{mov.motivo ?? "-"}</TableCell>
                       </TableRow>
                     ))}
@@ -218,12 +240,21 @@ export function EstoquePage() {
                         <div>
                           <p className="font-medium">{item.nome}</p>
                           <p className="text-sm text-muted-foreground">
-                            Minimo recomendado: {item.estoque_minimo}
+                            Minimo recomendado:{" "}
+                            {formatarQuantidade(
+                              item.estoque_minimo,
+                              unidadesPorId.get(item.unidade_medida_id)?.sigla
+                            )}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-bold text-yellow-500">{item.quantidade_estoque}</p>
+                        <p className="text-2xl font-bold text-yellow-500">
+                          {formatarQuantidade(
+                            item.quantidade_estoque,
+                            unidadesPorId.get(item.unidade_medida_id)?.sigla
+                          )}
+                        </p>
                         <p className="text-xs text-muted-foreground">em estoque</p>
                       </div>
                     </div>

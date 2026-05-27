@@ -17,6 +17,7 @@ from app.modules.produtos.repository import (
 )
 from app.modules.produtos.schemas import (
     FichaTecnicaAtualizar,
+    ItemFichaTecnicaCriar,
     ProdutoAtualizar,
     ProdutoCriar,
     ProdutoStatusAtualizar,
@@ -36,6 +37,13 @@ def criar_produto(sessao: Session, dados: ProdutoCriar) -> Produto:
         )
 
     _exigir_categoria_ativa(sessao, dados.categoria_id)
+    itens = _montar_itens_ficha_tecnica(0, dados.itens_ficha_tecnica)
+    ficha_valida, motivo = _validar_itens_ficha_tecnica(sessao, itens)
+    if not ficha_valida:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=motivo,
+        )
 
     produto = Produto(
         nome=nome,
@@ -47,6 +55,14 @@ def criar_produto(sessao: Session, dados: ProdutoCriar) -> Produto:
         demanda_esperada_diaria=dados.demanda_esperada_diaria,
         status=StatusProduto.RASCUNHO,
     )
+    sessao.add(produto)
+    sessao.flush()
+
+    for item in itens:
+        item.produto_id = produto.id
+    produto.itens_ficha_tecnica = itens
+
+    recalcular_custo_e_margem(sessao, produto, persistir=False)
     return salvar_produto(sessao, produto)
 
 
@@ -68,6 +84,16 @@ def obter_produtos_vendaveis(sessao: Session) -> list[Produto]:
 
 def atualizar_produto(sessao: Session, produto_id: int, dados: ProdutoAtualizar) -> Produto:
     produto = _exigir_produto(sessao, produto_id)
+    novos_itens = None
+
+    if dados.itens_ficha_tecnica is not None:
+        novos_itens = _montar_itens_ficha_tecnica(produto.id, dados.itens_ficha_tecnica)
+        ficha_valida, motivo = _validar_itens_ficha_tecnica(sessao, novos_itens)
+        if not ficha_valida:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=motivo,
+            )
 
     if dados.nome is not None:
         nome = dados.nome.strip()
@@ -91,6 +117,11 @@ def atualizar_produto(sessao: Session, produto_id: int, dados: ProdutoAtualizar)
 
     if dados.demanda_esperada_diaria is not None:
         produto.demanda_esperada_diaria = dados.demanda_esperada_diaria
+
+    if novos_itens is not None:
+        produto.itens_ficha_tecnica.clear()
+        sessao.flush()
+        produto.itens_ficha_tecnica.extend(novos_itens)
 
     recalcular_custo_e_margem(sessao, produto, persistir=False)
     return salvar_produto(sessao, produto)
@@ -119,19 +150,10 @@ def atualizar_ficha_tecnica(
     dados: FichaTecnicaAtualizar,
 ) -> Produto:
     produto = _exigir_produto(sessao, produto_id)
-    itens = [
-        ItemFichaTecnica(
-            produto_id=produto.id,
-            insumo_id=item.insumo_id,
-            quantidade=item.quantidade,
-            unidade_medida_id=item.unidade_medida_id,
-            removivel=item.removivel,
-        )
-        for item in dados.itens
-    ]
+    itens = _montar_itens_ficha_tecnica(produto.id, dados.itens)
 
     ficha_valida, motivo = _validar_itens_ficha_tecnica(sessao, itens)
-    if itens and not ficha_valida:
+    if not ficha_valida:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=motivo,
@@ -282,6 +304,22 @@ def _fator_para_unidade_insumo(
         return Decimal("1") / Decimal(inversa.fator)
 
     return None
+
+
+def _montar_itens_ficha_tecnica(
+    produto_id: int,
+    itens_dados: list[ItemFichaTecnicaCriar],
+) -> list[ItemFichaTecnica]:
+    return [
+        ItemFichaTecnica(
+            produto_id=produto_id,
+            insumo_id=item.insumo_id,
+            quantidade=item.quantidade,
+            unidade_medida_id=item.unidade_medida_id,
+            removivel=item.removivel,
+        )
+        for item in itens_dados
+    ]
 
 
 def _exigir_categoria_ativa(sessao: Session, categoria_id: int) -> None:

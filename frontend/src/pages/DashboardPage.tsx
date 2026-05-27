@@ -24,6 +24,7 @@ import {
   Tooltip,
 } from "recharts";
 import { buscarDashboard, listarVendas, type Dashboard, type Venda } from "@/servicos/api";
+import { formatarQuantidade } from "@/lib/utils";
 
 function formatCurrency(value: number | string) {
   return new Intl.NumberFormat("pt-BR", {
@@ -229,11 +230,11 @@ export function DashboardPage() {
                   <div>
                     <p className="font-medium">{item.nome}</p>
                     <p className="text-sm text-muted-foreground">
-                      Minimo: {item.estoque_minimo}
+                      Minimo: {formatarQuantidade(item.estoque_minimo)}
                     </p>
                   </div>
                   <Badge variant={Number(item.quantidade_estoque) <= 0 ? "destructive" : "warning"}>
-                    {item.quantidade_estoque}
+                    {formatarQuantidade(item.quantidade_estoque)}
                   </Badge>
                 </div>
               ))

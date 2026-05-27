@@ -139,6 +139,16 @@ export type ProdutoCriar = {
   categoria_id: number;
   preco_venda: number;
   demanda_esperada_diaria: number;
+  itens_ficha_tecnica: ItemFichaTecnicaCriar[];
+};
+
+export type ProdutoAtualizar = {
+  nome?: string;
+  descricao?: string;
+  categoria_id?: number;
+  preco_venda?: number;
+  demanda_esperada_diaria?: number;
+  itens_ficha_tecnica?: ItemFichaTecnicaCriar[];
 };
 
 export type ItemFichaTecnicaCriar = {
@@ -369,6 +379,22 @@ export type Insumo = {
   criado_em: string;
 };
 
+export type InsumoCriar = {
+  nome: string;
+  unidade_medida_id: number;
+  custo_unitario: number;
+  estoque_inicial: number;
+  estoque_minimo: number;
+};
+
+export type InsumoAtualizar = {
+  nome?: string;
+  unidade_medida_id?: number;
+  custo_unitario?: number;
+  estoque_minimo?: number;
+  ativo?: boolean;
+};
+
 export type UnidadeMedida = {
   id: number;
   nome: string;
@@ -386,6 +412,14 @@ export function listarInsumos() {
   return requisitar<Insumo[]>("/insumos");
 }
 
+export function cadastrarInsumo(corpo: InsumoCriar) {
+  return requisitar<Insumo>("/insumos", { metodo: "POST", corpo });
+}
+
+export function atualizarInsumo(insumoId: number, corpo: InsumoAtualizar) {
+  return requisitar<Insumo>(`/insumos/${insumoId}`, { metodo: "PUT", corpo });
+}
+
 export function listarUnidadesMedida() {
   return requisitar<UnidadeMedida[]>("/unidades-medida");
 }
@@ -400,6 +434,10 @@ export function consultarCardapioPDV() {
 
 export function cadastrarProduto(corpo: ProdutoCriar) {
   return requisitar<Produto>("/produtos", { metodo: "POST", corpo });
+}
+
+export function atualizarProduto(produtoId: number, corpo: ProdutoAtualizar) {
+  return requisitar<Produto>(`/produtos/${produtoId}`, { metodo: "PUT", corpo });
 }
 
 export function salvarFichaTecnica(produtoId: number, itens: ItemFichaTecnicaCriar[]) {
