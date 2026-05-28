@@ -7,10 +7,18 @@ from app.core.config import settings
 from app.database.base import Base
 
 
+def _normalizar_database_url(database_url: str) -> str:
+    if database_url.startswith("postgres://"):
+        return database_url.replace("postgres://", "postgresql://", 1)
+    return database_url
+
+
+database_url = _normalizar_database_url(settings.database_url)
+
 engine = create_engine(
-    settings.database_url,
+    database_url,
     connect_args={"check_same_thread": False}
-    if settings.database_url.startswith("sqlite")
+    if database_url.startswith("sqlite")
     else {},
 )
 
@@ -43,7 +51,7 @@ def obter_sessao() -> Generator[Session, None, None]:
 
 
 def _garantir_colunas_sqlite() -> None:
-    if not settings.database_url.startswith("sqlite"):
+    if not database_url.startswith("sqlite"):
         return
 
     colunas = {
