@@ -22,6 +22,10 @@ class VendaCriar(BaseModel):
     observacao: str | None = Field(default=None, max_length=500)
 
 
+class PromocoesVendaSimular(BaseModel):
+    itens: list[ItemVendaCriar] = Field(min_length=1)
+
+
 class VendaCancelar(BaseModel):
     motivo: str = Field(min_length=3, max_length=500)
 
@@ -61,6 +65,25 @@ class VendaResponse(BaseModel):
     itens: list[ItemVendaResponse]
 
     model_config = {"from_attributes": True}
+
+
+class ItemPromocaoVendaSimuladaResponse(BaseModel):
+    indice: int
+    produto_id: int
+    nome_produto: str
+    quantidade: int
+    subtotal: Decimal
+    desconto_total: Decimal
+    total: Decimal
+    promocao_resumo: str | None
+
+
+class PromocoesVendaSimuladaResponse(BaseModel):
+    subtotal: Decimal
+    desconto_total: Decimal
+    total: Decimal
+    promocoes_resumo: str | None
+    itens: list[ItemPromocaoVendaSimuladaResponse]
 
 
 class CardapioPDVResponse(BaseModel):

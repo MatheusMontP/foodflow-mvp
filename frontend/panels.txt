@@ -1,0 +1,79 @@
+        <section className="panel wide-panel">
+          <div className="panel-title">
+            <ClipboardCheck size={20} aria-hidden="true" />
+            <h2>Recomendacoes (Programacao Linear)</h2>
+            <button className="icon-button" type="button" onClick={aoGerarRecomendacao} disabled={carregando} title="Gerar Recomendacao">
+              <CirclePlus size={18} aria-hidden="true" />
+            </button>
+          </div>
+          {recomendacoes.length > 0 ? (
+            <div className="stack table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Fator de Confianca</th>
+                    <th>Lucro Estimado</th>
+                    <th>Capacidade Usada</th>
+                    <th>Insumos Limitantes</th>
+                    <th>Itens</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recomendacoes.map((rec) => (
+                    <tr key={rec.id}>
+                      <td>{new Date(rec.criado_em).toLocaleDateString("pt-BR")} as {new Date(rec.criado_em).toLocaleTimeString("pt-BR")}</td>
+                      <td>{rec.fator_confianca}/10</td>
+                      <td>{formatarMoeda(rec.lucro_estimado)}</td>
+                      <td>{rec.capacidade_usada}/{rec.capacidade_total} itens</td>
+                      <td>{rec.insumos_limitantes || "Nenhum"}</td>
+                      <td>
+                        <small>
+                          {rec.itens.map(item => ${item.produto_nome} ( unid)).join(", ")}
+                        </small>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+             <p className="empty">Nenhuma recomendacao gerada.</p>
+          )}
+        </section>
+
+        {usuario.papel === "OWNER" || usuario.papel === "MANAGER" ? (
+          <section className="panel wide-panel">
+            <div className="panel-title">
+              <Boxes size={20} aria-hidden="true" />
+              <h2>Backups Locais</h2>
+              <button className="icon-button" type="button" onClick={aoGerarBackup} disabled={carregando} title="Gerar Backup Manual">
+                <Download size={18} aria-hidden="true" />
+              </button>
+            </div>
+            {backups.length > 0 ? (
+              <div className="stack table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Data</th>
+                      <th>Arquivo</th>
+                      <th>Tamanho</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {backups.map((bkp, i) => (
+                      <tr key={String(i)}>
+                        <td>{new Date(bkp.data_criacao).toLocaleString("pt-BR")}</td>
+                        <td>{bkp.nome_arquivo}</td>
+                        <td>{(bkp.tamanho_bytes / 1024).toFixed(2)} KB</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+                <p className="empty">Nenhum backup localizado.</p>
+            )}
+          </section>
+        ) : null}

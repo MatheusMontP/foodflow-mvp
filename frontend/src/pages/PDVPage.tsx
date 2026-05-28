@@ -11,6 +11,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Search,
   Plus,
   Minus,
@@ -25,9 +32,11 @@ import type { Categoria, Produto } from "@/types";
 import {
   consultarCardapioPDV,
   finalizarVenda,
+  simularPromocoesVenda,
   type Categoria as CategoriaApi,
   type FormaPagamento,
   type Produto as ProdutoApi,
+  type PromocoesVendaSimulada,
 } from "@/servicos/api";
 
 type ProdutoPDV = Produto & {
@@ -79,6 +88,10 @@ export function PDVPage() {
   const [produtos, setProdutos] = useState<ProdutoPDV[]>([]);
   const [loading, setLoading] = useState(true);
   const [finalizando, setFinalizando] = useState<FormaPagamento | null>(null);
+  const [formaPagamentoPendente, setFormaPagamentoPendente] = useState<FormaPagamento | null>(null);
+  const [simulacaoPromocao, setSimulacaoPromocao] = useState<PromocoesVendaSimulada | null>(null);
+  const [simulandoPromocao, setSimulandoPromocao] = useState(false);
+  const [erroSimulacaoPromocao, setErroSimulacaoPromocao] = useState("");
   const [mensagem, setMensagem] = useState("");
 
   async function carregarCardapio() {
@@ -110,6 +123,72 @@ export function PDVPage() {
     [produtos, searchTerm, selectedCategory]
   );
 
+  const formaPagamentoSelecionada = formasPagamento.find(
+    (forma) => forma.api === formaPagamentoPendente
+  );
+  const descontoSimulado = Number(simulacaoPromocao?.desconto_total ?? 0);
+  const totalSimulado = simulacaoPromocao ? Number(simulacaoPromocao.total) : getTotal();
+  const promocaoAplicada = descontoSimulado > 0;
+
+  useEffect(() => {
+    if (items.length === 0) {
+      setSimulacaoPromocao(null);
+      setSimulandoPromocao(false);
+      setErroSimulacaoPromocao("");
+      return;
+    }
+
+    let ativo = true;
+    setSimulandoPromocao(true);
+
+    simularPromocoesVenda({
+      itens: items.map((item) => ({
+        produto_id: item.produto.id,
+        quantidade: item.quantidade,
+        adicional_ids: item.adicionais.flatMap((adicional) =>
+          Array.from({ length: adicional.quantidade }, () => adicional.adicional.id)
+        ),
+        remocao_item_ficha_tecnica_ids: [],
+        observacao: item.observacao,
+      })),
+    })
+      .then((simulacao) => {
+        if (ativo) {
+          setSimulacaoPromocao(simulacao);
+          setErroSimulacaoPromocao("");
+        }
+      })
+      .catch((erro) => {
+        if (ativo) {
+          setSimulacaoPromocao(null);
+          setErroSimulacaoPromocao(
+            erro instanceof Error
+              ? erro.message
+              : "Nao foi possivel calcular promocoes no PDV."
+          );
+        }
+      })
+      .finally(() => {
+        if (ativo) {
+          setSimulandoPromocao(false);
+        }
+      });
+
+    return () => {
+      ativo = false;
+    };
+  }, [items]);
+
+  function handleSolicitarPagamento(formaPagamento: FormaPagamento) {
+    if (items.length === 0) {
+      setMensagem("Adicione produtos ao carrinho.");
+      return;
+    }
+
+    setMensagem("");
+    setFormaPagamentoPendente(formaPagamento);
+  }
+
   async function handleFinalizarVenda(formaPagamento: FormaPagamento) {
     if (items.length === 0) {
       setMensagem("Adicione produtos ao carrinho.");
@@ -136,6 +215,7 @@ export function PDVPage() {
       clearCart();
       await carregarCardapio();
       window.dispatchEvent(new Event("foodflow:data-updated"));
+      setFormaPagamentoPendente(null);
       setMensagem(`Venda ${venda.numero_pedido} finalizada. Total: ${formatCurrency(Number(venda.total))}`);
     } catch (erro) {
       setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel finalizar a venda.");
@@ -223,13 +303,23 @@ export function PDVPage() {
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                {items.map((item) => (
+                {items.map((item, index) => {
+                  const itemSimulado = simulacaoPromocao?.itens[index];
+                  const descontoItem = Number(itemSimulado?.desconto_total ?? 0);
+
+                  return (
                   <div key={item.id} className="flex items-center gap-3 rounded-lg border p-3">
                     <div className="flex-1">
                       <p className="font-medium">{item.produto.nome}</p>
                       <p className="text-sm text-muted-foreground">
                         {formatCurrency(item.produto.preco)} cada
                       </p>
+                      {descontoItem > 0 && (
+                        <p className="mt-1 text-xs font-medium text-primary">
+                          Promo: -{formatCurrency(descontoItem)}
+                          {itemSimulado?.promocao_resumo ? ` (${itemSimulado.promocao_resumo})` : ""}
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -264,15 +354,40 @@ export function PDVPage() {
                       <Trash2 className="size-4" />
                     </Button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
 
           <div className="border-t pt-4">
-            <div className="mb-4 flex items-center justify-between text-lg font-bold">
-              <span>Total</span>
-              <span className="text-primary">{formatCurrency(getTotal())}</span>
+            <div className="mb-4 flex flex-col gap-2">
+              {promocaoAplicada && (
+                <>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>Subtotal</span>
+                    <span>{formatCurrency(Number(simulacaoPromocao?.subtotal ?? getTotal()))}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm font-medium text-primary">
+                    <span>Promocao</span>
+                    <span>-{formatCurrency(descontoSimulado)}</span>
+                  </div>
+                  {simulacaoPromocao?.promocoes_resumo && (
+                    <Badge variant="secondary" className="w-fit">
+                      {simulacaoPromocao.promocoes_resumo}
+                    </Badge>
+                  )}
+                </>
+              )}
+              <div className="flex items-center justify-between text-lg font-bold">
+                <span>Total</span>
+                <span className="text-primary">
+                  {simulandoPromocao ? "Calculando..." : formatCurrency(totalSimulado)}
+                </span>
+              </div>
+              {erroSimulacaoPromocao && (
+                <p className="text-xs text-destructive">{erroSimulacaoPromocao}</p>
+              )}
             </div>
 
             <div className="grid grid-cols-3 gap-2">
@@ -281,7 +396,7 @@ export function PDVPage() {
                   key={forma.api}
                   variant="outline"
                   className="flex h-auto flex-col gap-1 py-3"
-                  onClick={() => void handleFinalizarVenda(forma.api)}
+                  onClick={() => handleSolicitarPagamento(forma.api)}
                   disabled={items.length === 0 || finalizando !== null}
                 >
                   {finalizando === forma.api ? (
@@ -309,6 +424,102 @@ export function PDVPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog
+        open={formaPagamentoPendente !== null}
+        onOpenChange={(open) => {
+          if (!open && finalizando === null) {
+            setFormaPagamentoPendente(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar Venda</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4 py-4">
+            <div className="rounded-md border p-3">
+              <div className="mb-3 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Forma de pagamento</span>
+                <Badge variant="secondary">{formaPagamentoSelecionada?.label ?? "-"}</Badge>
+              </div>
+              <div className="flex flex-col gap-2">
+                {items.map((item, index) => {
+                  const itemSimulado = simulacaoPromocao?.itens[index];
+                  const descontoItem = Number(itemSimulado?.desconto_total ?? 0);
+                  const totalItem = itemSimulado
+                    ? Number(itemSimulado.total)
+                    : item.produto.preco * item.quantidade;
+
+                  return (
+                    <div key={item.id} className="flex items-start justify-between gap-3 text-sm">
+                      <div>
+                        <p className="font-medium">{item.produto.nome}</p>
+                        <p className="text-muted-foreground">
+                          {item.quantidade} x {formatCurrency(item.produto.preco)}
+                        </p>
+                        {descontoItem > 0 && (
+                          <p className="text-xs font-medium text-primary">
+                            Promo: -{formatCurrency(descontoItem)}
+                            {itemSimulado?.promocao_resumo ? ` (${itemSimulado.promocao_resumo})` : ""}
+                          </p>
+                        )}
+                      </div>
+                      <span className="font-medium">{formatCurrency(totalItem)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 border-t pt-4">
+              {promocaoAplicada && (
+                <>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>Subtotal</span>
+                    <span>{formatCurrency(Number(simulacaoPromocao?.subtotal ?? getTotal()))}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm font-medium text-primary">
+                    <span>Desconto aplicado</span>
+                    <span>-{formatCurrency(descontoSimulado)}</span>
+                  </div>
+                  {simulacaoPromocao?.promocoes_resumo && (
+                    <Badge variant="secondary" className="w-fit">
+                      {simulacaoPromocao.promocoes_resumo}
+                    </Badge>
+                  )}
+                </>
+              )}
+              <div className="flex items-center justify-between text-lg font-bold">
+                <span>Total</span>
+                <span className="text-primary">{formatCurrency(totalSimulado)}</span>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setFormaPagamentoPendente(null)}
+              disabled={finalizando !== null}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() =>
+                formaPagamentoPendente
+                  ? void handleFinalizarVenda(formaPagamentoPendente)
+                  : undefined
+              }
+              disabled={finalizando !== null || formaPagamentoPendente === null}
+            >
+              {finalizando !== null && <Loader2 className="size-4 animate-spin" />}
+              Confirmar venda
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

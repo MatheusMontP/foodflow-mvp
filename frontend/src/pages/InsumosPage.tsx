@@ -30,6 +30,7 @@ import {
   cadastrarInsumo,
   listarInsumos,
   listarUnidadesMedida,
+  registrarAjusteEstoque,
   type Insumo,
   type UnidadeMedida,
 } from "@/servicos/api";
@@ -161,7 +162,7 @@ export function InsumosPage() {
         custo_unitario: Number(formData.custo_unitario),
         estoque_minimo: Number(formData.estoque_minimo || 0),
       };
-      const insumoSalvo = editingInsumo
+      let insumoSalvo = editingInsumo
         ? await atualizarInsumo(editingInsumo.id, {
             ...payloadBase,
             ativo: formData.ativo,
@@ -170,6 +171,24 @@ export function InsumosPage() {
             ...payloadBase,
             estoque_inicial: Number(formData.estoque_inicial || 0),
           });
+
+      if (editingInsumo) {
+        const quantidadeAtual = Number(editingInsumo.quantidade_estoque);
+        const novaQuantidade = Number(formData.estoque_inicial || 0);
+        const diferenca = novaQuantidade - quantidadeAtual;
+
+        if (diferenca !== 0) {
+          await registrarAjusteEstoque({
+            insumo_id: editingInsumo.id,
+            quantidade_diferenca: diferenca,
+            motivo: "Ajuste na edicao do insumo",
+          });
+          const insumosAtualizados = await listarInsumos();
+          insumoSalvo =
+            insumosAtualizados.find((insumo) => insumo.id === editingInsumo.id) ?? insumoSalvo;
+          setInsumos(insumosAtualizados);
+        }
+      }
 
       setInsumos((prev) => {
         const atualizados = editingInsumo
@@ -342,14 +361,15 @@ export function InsumosPage() {
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="estoque_inicial">Estoque inicial</Label>
+                <Label htmlFor="estoque_inicial">
+                  {editingInsumo ? "Estoque atual" : "Estoque inicial"}
+                </Label>
                 <Input
                   id="estoque_inicial"
                   type="number"
                   min="0"
                   step="0.001"
                   value={formData.estoque_inicial}
-                  disabled={Boolean(editingInsumo)}
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, estoque_inicial: e.target.value }))
                   }

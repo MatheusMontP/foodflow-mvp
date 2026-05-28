@@ -61,6 +61,10 @@ def _garantir_colunas_sqlite() -> None:
         "movimentacoes_estoque": {
             "venda_id": "INTEGER",
         },
+        "promocoes": {
+            "quantidade_leve": "INTEGER",
+            "quantidade_pague": "INTEGER",
+        },
     }
     with engine.begin() as conexao:
         for tabela, definicoes in colunas.items():

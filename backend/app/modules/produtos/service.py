@@ -12,6 +12,8 @@ from app.modules.produtos.repository import (
     buscar_produto_por_nome,
     listar_produtos,
     listar_produtos_ativos,
+    produto_tem_vinculos_operacionais,
+    remover_produto,
     salvar_produto,
     substituir_itens_ficha,
 )
@@ -174,6 +176,17 @@ def recalcular_produto(sessao: Session, produto_id: int) -> Produto:
     produto = _exigir_produto(sessao, produto_id)
     recalcular_custo_e_margem(sessao, produto, persistir=False)
     return salvar_produto(sessao, produto)
+
+
+def excluir_produto(sessao: Session, produto_id: int) -> None:
+    produto = _exigir_produto(sessao, produto_id)
+    if produto_tem_vinculos_operacionais(sessao, produto.id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Produto possui historico operacional. Inative o produto para remove-lo do PDV.",
+        )
+
+    remover_produto(sessao, produto)
 
 
 def ficha_tecnica_valida(sessao: Session, produto: Produto) -> bool:

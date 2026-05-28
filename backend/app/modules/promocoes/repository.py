@@ -21,3 +21,8 @@ def salvar_promocao(sessao: Session, promocao: Promocao) -> Promocao:
     sessao.commit()
     sessao.refresh(promocao)
     return promocao
+
+
+def remover_promocao(sessao: Session, promocao: Promocao) -> None:
+    sessao.delete(promocao)
+    sessao.commit()

@@ -16,6 +16,7 @@ from app.modules.produtos.service import (
     atualizar_produto,
     atualizar_status_produto,
     criar_produto,
+    excluir_produto,
     obter_produtos,
     obter_produtos_vendaveis,
     produto_para_response,
@@ -93,3 +94,12 @@ def recalcular_custos_produto(
 ):
     produto = recalcular_produto(sessao, produto_id)
     return produto_para_response(sessao, produto)
+
+
+@router.delete("/{produto_id}", status_code=status.HTTP_204_NO_CONTENT)
+def deletar_produto(
+    produto_id: int,
+    sessao: Session = Depends(obter_sessao),
+    _: Usuario = Depends(exigir_papeis(PapelUsuario.OWNER, PapelUsuario.MANAGER)),
+):
+    excluir_produto(sessao, produto_id)

@@ -14,7 +14,7 @@ from app.modules.estoque.repository import listar_movimentacoes_por_venda
 from app.modules.insumos.repository import buscar_insumo_por_id
 from app.modules.pdv.models import ItemVenda, StatusVenda, Venda
 from app.modules.pdv.repository import buscar_venda_por_id, contar_vendas_por_prefixo, listar_vendas, salvar_venda
-from app.modules.pdv.schemas import VendaCancelar, VendaCriar
+from app.modules.pdv.schemas import PromocoesVendaSimular, VendaCancelar, VendaCriar
 from app.modules.produtos.repository import buscar_produto_por_id, listar_produtos_ativos
 from app.modules.produtos.service import produto_para_response
 from app.modules.promocoes.service import ItemPromocaoContexto, calcular_promocoes_venda
@@ -41,6 +41,77 @@ def obter_cardapio_pdv(sessao: Session) -> dict:
 
 def obter_vendas(sessao: Session) -> list[Venda]:
     return listar_vendas(sessao)
+
+
+def simular_promocoes_venda(sessao: Session, dados: PromocoesVendaSimular) -> dict:
+    itens_simulados = []
+    contextos_promocao: list[ItemPromocaoContexto] = []
+    subtotal = Decimal("0")
+
+    for indice, item_dados in enumerate(dados.itens):
+        produto = buscar_produto_por_id(sessao, item_dados.produto_id)
+        if produto is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Produto nao encontrado.")
+
+        simulacao = simular_item_produto(
+            sessao,
+            produto.id,
+            SimulacaoItemRequest(
+                adicional_ids=item_dados.adicional_ids,
+                remocao_item_ficha_tecnica_ids=item_dados.remocao_item_ficha_tecnica_ids,
+                observacao=item_dados.observacao,
+            ),
+        )
+
+        quantidade = item_dados.quantidade
+        preco_unitario = Decimal(simulacao["preco_total"])
+        item_subtotal = (preco_unitario * quantidade).quantize(CENTAVOS, rounding=ROUND_HALF_UP)
+        subtotal += item_subtotal
+        contextos_promocao.append(
+            ItemPromocaoContexto(
+                produto_id=produto.id,
+                categoria_id=produto.categoria_id,
+                subtotal=item_subtotal,
+                quantidade=quantidade,
+            )
+        )
+        itens_simulados.append(
+            {
+                "indice": indice,
+                "produto_id": produto.id,
+                "nome_produto": produto.nome,
+                "quantidade": quantidade,
+                "subtotal": item_subtotal,
+            }
+        )
+
+    descontos_itens, desconto_total, promocoes_aplicadas = calcular_promocoes_venda(
+        sessao,
+        contextos_promocao,
+        subtotal,
+    )
+
+    itens = []
+    for indice, item in enumerate(itens_simulados):
+        desconto_item = descontos_itens[indice].quantize(CENTAVOS, rounding=ROUND_HALF_UP)
+        total_item = (Decimal(item["subtotal"]) - desconto_item).quantize(CENTAVOS, rounding=ROUND_HALF_UP)
+        itens.append(
+            {
+                **item,
+                "desconto_total": desconto_item,
+                "total": total_item,
+                "promocao_resumo": _resumo_promocoes_item(promocoes_aplicadas, indice),
+            }
+        )
+
+    total = (subtotal - desconto_total).quantize(CENTAVOS, rounding=ROUND_HALF_UP)
+    return {
+        "subtotal": subtotal.quantize(CENTAVOS, rounding=ROUND_HALF_UP),
+        "desconto_total": desconto_total.quantize(CENTAVOS, rounding=ROUND_HALF_UP),
+        "total": total,
+        "promocoes_resumo": _resumo_promocoes_venda(promocoes_aplicadas),
+        "itens": itens,
+    }
 
 
 def finalizar_venda(sessao: Session, dados: VendaCriar, usuario_id: int | None) -> Venda:

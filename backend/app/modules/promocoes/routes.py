@@ -14,6 +14,7 @@ from app.modules.promocoes.service import (
     atualizar_promocao,
     atualizar_status_promocao,
     criar_promocao,
+    excluir_promocao,
     obter_promocoes,
 )
 
@@ -56,3 +57,12 @@ def editar_status_promocao(
     _: Usuario = Depends(exigir_papeis(PapelUsuario.OWNER, PapelUsuario.MANAGER)),
 ):
     return atualizar_status_promocao(sessao, promocao_id, dados)
+
+
+@router.delete("/{promocao_id}", status_code=status.HTTP_204_NO_CONTENT)
+def deletar_promocao(
+    promocao_id: int,
+    sessao: Session = Depends(obter_sessao),
+    _: Usuario = Depends(exigir_papeis(PapelUsuario.OWNER, PapelUsuario.MANAGER)),
+):
+    excluir_promocao(sessao, promocao_id)

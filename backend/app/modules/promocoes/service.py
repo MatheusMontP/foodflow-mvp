@@ -12,6 +12,7 @@ from app.modules.promocoes.repository import (
     buscar_promocao_por_id,
     buscar_promocao_por_nome,
     listar_promocoes,
+    remover_promocao,
     salvar_promocao,
 )
 from app.modules.promocoes.schemas import PromocaoAtualizar, PromocaoCriar, PromocaoStatusAtualizar
@@ -51,6 +52,8 @@ def criar_promocao(sessao: Session, dados: PromocaoCriar) -> Promocao:
         escopo=dados.escopo,
         tipo_desconto=dados.tipo_desconto,
         valor=dados.valor,
+        quantidade_leve=dados.quantidade_leve if dados.tipo_desconto == TipoDesconto.LEVE_PAGUE else None,
+        quantidade_pague=dados.quantidade_pague if dados.tipo_desconto == TipoDesconto.LEVE_PAGUE else None,
         produto_id=dados.produto_id if dados.escopo == EscopoPromocao.PRODUTO else None,
         categoria_id=dados.categoria_id if dados.escopo == EscopoPromocao.CATEGORIA else None,
         inicio_em=dados.inicio_em,
@@ -81,6 +84,10 @@ def atualizar_promocao(sessao: Session, promocao_id: int, dados: PromocaoAtualiz
         promocao.tipo_desconto = dados.tipo_desconto
     if dados.valor is not None:
         promocao.valor = dados.valor
+    if dados.quantidade_leve is not None:
+        promocao.quantidade_leve = dados.quantidade_leve
+    if dados.quantidade_pague is not None:
+        promocao.quantidade_pague = dados.quantidade_pague
     if dados.inicio_em is not None:
         promocao.inicio_em = dados.inicio_em
     if dados.fim_em is not None:
@@ -90,6 +97,7 @@ def atualizar_promocao(sessao: Session, promocao_id: int, dados: PromocaoAtualiz
 
     if promocao.inicio_em is not None and promocao.fim_em is not None and promocao.inicio_em > promocao.fim_em:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Periodo da promocao invalido.")
+    _validar_regra_desconto(promocao)
 
     return salvar_promocao(sessao, promocao)
 
@@ -98,6 +106,11 @@ def atualizar_status_promocao(sessao: Session, promocao_id: int, dados: Promocao
     promocao = _exigir_promocao(sessao, promocao_id)
     promocao.ativa = dados.ativa
     return salvar_promocao(sessao, promocao)
+
+
+def excluir_promocao(sessao: Session, promocao_id: int) -> None:
+    promocao = _exigir_promocao(sessao, promocao_id)
+    remover_promocao(sessao, promocao)
 
 
 def calcular_promocoes_venda(
@@ -148,26 +161,52 @@ def _aplicar_promocoes_item(
 ) -> list[PromocaoAplicada]:
     aplicadas: list[PromocaoAplicada] = []
     candidatas = [promocao for promocao in promocoes if promocao.escopo == escopo]
+    grupos: dict[int, list[int]] = {}
 
     for indice, item in enumerate(itens):
+        alvo_id = item.produto_id if escopo == EscopoPromocao.PRODUTO else item.categoria_id
+        grupos.setdefault(alvo_id, []).append(indice)
+
+    for indices in grupos.values():
+        primeiro_item = itens[indices[0]]
         elegiveis = [
             promocao
             for promocao in candidatas
             if (
                 escopo == EscopoPromocao.PRODUTO
-                and promocao.produto_id == item.produto_id
+                and promocao.produto_id == primeiro_item.produto_id
             )
             or (
                 escopo == EscopoPromocao.CATEGORIA
-                and promocao.categoria_id == item.categoria_id
+                and promocao.categoria_id == primeiro_item.categoria_id
             )
         ]
-        melhor = _melhor_promocao_por_economia(elegiveis, item.subtotal)
+        aplicadas.extend(_melhores_promocoes_grupo(elegiveis, itens, indices))
+
+    return aplicadas
+
+
+def _melhores_promocoes_grupo(
+    promocoes: list[Promocao],
+    itens: list[ItemPromocaoContexto],
+    indices: list[int],
+) -> list[PromocaoAplicada]:
+    if not promocoes:
+        return []
+
+    regulares = [promocao for promocao in promocoes if promocao.tipo_desconto != TipoDesconto.LEVE_PAGUE]
+    leve_pague = [promocao for promocao in promocoes if promocao.tipo_desconto == TipoDesconto.LEVE_PAGUE]
+    opcoes: list[list[PromocaoAplicada]] = []
+
+    aplicadas_regulares: list[PromocaoAplicada] = []
+    for indice in indices:
+        item = itens[indice]
+        melhor = _melhor_promocao_por_economia(regulares, item.subtotal, item.quantidade)
         if melhor is None:
             continue
-        desconto = _calcular_desconto(melhor, item.subtotal)
+        desconto = _calcular_desconto(melhor, item.subtotal, item.quantidade)
         if desconto > Decimal("0"):
-            aplicadas.append(
+            aplicadas_regulares.append(
                 PromocaoAplicada(
                     promocao_id=melhor.id,
                     nome=melhor.nome,
@@ -176,8 +215,39 @@ def _aplicar_promocoes_item(
                     item_indice=indice,
                 )
             )
+    if aplicadas_regulares:
+        opcoes.append(aplicadas_regulares)
 
-    return aplicadas
+    subtotal_grupo = sum((itens[indice].subtotal for indice in indices), Decimal("0"))
+    quantidade_grupo = sum((itens[indice].quantidade for indice in indices), 0)
+    bases = [itens[indice].subtotal for indice in indices]
+
+    for promocao in leve_pague:
+        desconto_grupo = _calcular_desconto(promocao, subtotal_grupo, quantidade_grupo)
+        if desconto_grupo <= Decimal("0"):
+            continue
+        descontos = _ratear_desconto(desconto_grupo, bases, subtotal_grupo)
+        aplicadas_leve_pague = [
+            PromocaoAplicada(
+                promocao_id=promocao.id,
+                nome=promocao.nome,
+                escopo=promocao.escopo,
+                desconto_total=descontos[posicao],
+                item_indice=indice,
+            )
+            for posicao, indice in enumerate(indices)
+            if descontos[posicao] > Decimal("0")
+        ]
+        if aplicadas_leve_pague:
+            opcoes.append(aplicadas_leve_pague)
+
+    if not opcoes:
+        return []
+
+    return max(
+        opcoes,
+        key=lambda aplicadas: (sum((aplicada.desconto_total for aplicada in aplicadas), Decimal("0")), -len(aplicadas)),
+    )
 
 
 def _melhor_promocao_venda(promocoes: list[Promocao], subtotal: Decimal) -> Promocao | None:
@@ -187,20 +257,43 @@ def _melhor_promocao_venda(promocoes: list[Promocao], subtotal: Decimal) -> Prom
     )
 
 
-def _melhor_promocao_por_economia(promocoes: list[Promocao], base: Decimal) -> Promocao | None:
+def _melhor_promocao_por_economia(
+    promocoes: list[Promocao],
+    base: Decimal,
+    quantidade: int | None = None,
+) -> Promocao | None:
     if not promocoes:
         return None
-    return max(promocoes, key=lambda promocao: (_calcular_desconto(promocao, base), -promocao.id))
+    return max(promocoes, key=lambda promocao: (_calcular_desconto(promocao, base, quantidade), -promocao.id))
 
 
-def _calcular_desconto(promocao: Promocao, base: Decimal) -> Decimal:
+def _calcular_desconto(promocao: Promocao, base: Decimal, quantidade: int | None = None) -> Decimal:
     if base <= Decimal("0"):
         return Decimal("0")
     if promocao.tipo_desconto == TipoDesconto.PERCENTUAL:
         desconto = base * Decimal(promocao.valor) / Decimal("100")
+    elif promocao.tipo_desconto == TipoDesconto.LEVE_PAGUE:
+        desconto = _calcular_desconto_leve_pague(promocao, base, quantidade)
     else:
         desconto = Decimal(promocao.valor)
     return min(desconto, base).quantize(CENTAVOS, rounding=ROUND_HALF_UP)
+
+
+def _calcular_desconto_leve_pague(promocao: Promocao, base: Decimal, quantidade: int | None) -> Decimal:
+    if quantidade is None or quantidade <= 0:
+        return Decimal("0")
+    if promocao.quantidade_leve is None or promocao.quantidade_pague is None:
+        return Decimal("0")
+    if promocao.quantidade_pague >= promocao.quantidade_leve:
+        return Decimal("0")
+
+    grupos = quantidade // promocao.quantidade_leve
+    itens_gratis = grupos * (promocao.quantidade_leve - promocao.quantidade_pague)
+    if itens_gratis <= 0:
+        return Decimal("0")
+
+    preco_unitario = base / Decimal(quantidade)
+    return (preco_unitario * Decimal(itens_gratis)).quantize(CENTAVOS, rounding=ROUND_HALF_UP)
 
 
 def _ratear_desconto(desconto: Decimal, bases: list[Decimal], subtotal: Decimal) -> list[Decimal]:
@@ -253,6 +346,35 @@ def _validar_referencias(
         categoria = categorias.get(categoria_id or 0)
         if categoria is None or not categoria.ativo:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Categoria nao encontrada.")
+
+
+def _validar_regra_desconto(promocao: Promocao) -> None:
+    if promocao.tipo_desconto == TipoDesconto.LEVE_PAGUE:
+        if promocao.escopo == EscopoPromocao.VENDA:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Leve e pague deve ser aplicado a produto ou categoria.",
+            )
+        if promocao.quantidade_leve is None or promocao.quantidade_pague is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Leve e pague exige as quantidades leve e pague.",
+            )
+        if promocao.quantidade_pague >= promocao.quantidade_leve:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="A quantidade paga deve ser menor que a quantidade levada.",
+            )
+        promocao.valor = Decimal("0")
+        return
+
+    if Decimal(promocao.valor) <= Decimal("0"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Valor da promocao deve ser maior que zero.",
+        )
+    promocao.quantidade_leve = None
+    promocao.quantidade_pague = None
 
 
 def _exigir_promocao(sessao: Session, promocao_id: int) -> Promocao:

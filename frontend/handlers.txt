@@ -1,0 +1,26 @@
+    async function aoGerarRecomendacao() {
+      setCarregando(true);
+      try {
+        const dados = await gerarRecomendacao();
+        setRecomendacoes([dados, ...recomendacoes]);
+        setMensagem("Recomendacao gerada com sucesso!");
+      } catch (erro) {
+        setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel gerar a recomendacao.");
+      } finally {
+        setCarregando(false);
+      }
+    }
+
+    async function aoGerarBackup() {
+      setCarregando(true);
+      try {
+        const resposta = await gerarBackup();
+        setMensagem(resposta.mensagem);
+        const atualizados = await listarBackups();
+        setBackups(atualizados);
+      } catch (erro) {
+        setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel gerar o backup.");
+      } finally {
+        setCarregando(false);
+      }
+    }

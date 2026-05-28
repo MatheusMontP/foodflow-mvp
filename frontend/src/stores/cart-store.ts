@@ -23,15 +23,28 @@ export const useCartStore = create<CartState>()(
       addItem: (produto, quantidade = 1) => {
         const id = `${produto.id}-${Date.now()}`;
         set((state) => ({
-          items: [
-            ...state.items,
-            {
-              id,
-              produto,
-              quantidade,
-              adicionais: [],
-            },
-          ],
+          items: state.items.some(
+            (item) =>
+              item.produto.id === produto.id &&
+              item.adicionais.length === 0 &&
+              !item.observacao
+          )
+            ? state.items.map((item) =>
+                item.produto.id === produto.id &&
+                item.adicionais.length === 0 &&
+                !item.observacao
+                  ? { ...item, quantidade: item.quantidade + quantidade }
+                  : item
+              )
+            : [
+                ...state.items,
+                {
+                  id,
+                  produto,
+                  quantidade,
+                  adicionais: [],
+                },
+              ],
         }));
       },
 

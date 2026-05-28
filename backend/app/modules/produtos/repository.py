@@ -1,7 +1,10 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.modules.pdv.models import ItemVenda
 from app.modules.produtos.models import ItemFichaTecnica, Produto, StatusProduto
+from app.modules.promocoes.models import Promocao
+from app.modules.recomendacoes.models import ItemRecomendacao
 
 
 def buscar_produto_por_id(sessao: Session, produto_id: int) -> Produto | None:
@@ -42,6 +45,20 @@ def salvar_produto(sessao: Session, produto: Produto) -> Produto:
     sessao.commit()
     sessao.refresh(produto)
     return produto
+
+
+def produto_tem_vinculos_operacionais(sessao: Session, produto_id: int) -> bool:
+    consultas = (
+        select(ItemVenda.id).where(ItemVenda.produto_id == produto_id),
+        select(Promocao.id).where(Promocao.produto_id == produto_id),
+        select(ItemRecomendacao.id).where(ItemRecomendacao.produto_id == produto_id),
+    )
+    return any(sessao.scalar(consulta.limit(1)) is not None for consulta in consultas)
+
+
+def remover_produto(sessao: Session, produto: Produto) -> None:
+    sessao.delete(produto)
+    sessao.commit()
 
 
 def substituir_itens_ficha(

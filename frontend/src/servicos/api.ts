@@ -1,6 +1,6 @@
-const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api";
+const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8001/api";
 
-type MetodoHttp = "GET" | "POST" | "PUT" | "PATCH";
+type MetodoHttp = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 async function requisitar<T>(caminho: string, opcoes: { metodo?: MetodoHttp; corpo?: unknown } = {}) {
   const token = obterToken();
@@ -16,6 +16,10 @@ async function requisitar<T>(caminho: string, opcoes: { metodo?: MetodoHttp; cor
   if (!resposta.ok) {
     const erro = (await resposta.json().catch(() => null)) as { detail?: string } | null;
     throw new Error(erro?.detail ?? "Nao foi possivel concluir a operacao.");
+  }
+
+  if (resposta.status === 204) {
+    return undefined as T;
   }
 
   return resposta.json() as Promise<T>;
@@ -332,7 +336,7 @@ export type Dashboard = {
 };
 
 export type EscopoPromocao = "PRODUTO" | "CATEGORIA" | "VENDA";
-export type TipoDesconto = "PERCENTUAL" | "VALOR_FIXO";
+export type TipoDesconto = "PERCENTUAL" | "VALOR_FIXO" | "LEVE_PAGUE";
 
 export type Promocao = {
   id: number;
@@ -340,6 +344,8 @@ export type Promocao = {
   escopo: EscopoPromocao;
   tipo_desconto: TipoDesconto;
   valor: string;
+  quantidade_leve: number | null;
+  quantidade_pague: number | null;
   produto_id: number | null;
   categoria_id: number | null;
   inicio_em: string | null;
@@ -353,11 +359,43 @@ export type PromocaoCriar = {
   escopo: EscopoPromocao;
   tipo_desconto: TipoDesconto;
   valor: number;
+  quantidade_leve?: number;
+  quantidade_pague?: number;
   produto_id?: number;
   categoria_id?: number;
   inicio_em?: string;
   fim_em?: string;
   ativa: boolean;
+};
+
+export type PromocaoAtualizar = {
+  nome?: string;
+  tipo_desconto?: TipoDesconto;
+  valor?: number;
+  quantidade_leve?: number;
+  quantidade_pague?: number;
+  inicio_em?: string | null;
+  fim_em?: string | null;
+  ativa?: boolean;
+};
+
+export type ItemPromocaoVendaSimulada = {
+  indice: number;
+  produto_id: number;
+  nome_produto: string;
+  quantidade: number;
+  subtotal: string;
+  desconto_total: string;
+  total: string;
+  promocao_resumo: string | null;
+};
+
+export type PromocoesVendaSimulada = {
+  subtotal: string;
+  desconto_total: string;
+  total: string;
+  promocoes_resumo: string | null;
+  itens: ItemPromocaoVendaSimulada[];
 };
 
 export type Categoria = {
@@ -417,7 +455,7 @@ export function cadastrarInsumo(corpo: InsumoCriar) {
 }
 
 export function atualizarInsumo(insumoId: number, corpo: InsumoAtualizar) {
-  return requisitar<Insumo>(`/insumos/${insumoId}`, { metodo: "PUT", corpo });
+  return requisitar<Insumo>(`/insumos/${insumoId}`, { metodo: "PATCH", corpo });
 }
 
 export function listarUnidadesMedida() {
@@ -438,6 +476,10 @@ export function cadastrarProduto(corpo: ProdutoCriar) {
 
 export function atualizarProduto(produtoId: number, corpo: ProdutoAtualizar) {
   return requisitar<Produto>(`/produtos/${produtoId}`, { metodo: "PUT", corpo });
+}
+
+export function excluirProduto(produtoId: number) {
+  return requisitar<void>(`/produtos/${produtoId}`, { metodo: "DELETE" });
 }
 
 export function salvarFichaTecnica(produtoId: number, itens: ItemFichaTecnicaCriar[]) {
@@ -470,11 +512,19 @@ export function cadastrarPromocao(corpo: PromocaoCriar) {
   return requisitar<Promocao>("/promocoes", { metodo: "POST", corpo });
 }
 
+export function atualizarPromocao(promocaoId: number, corpo: PromocaoAtualizar) {
+  return requisitar<Promocao>(`/promocoes/${promocaoId}`, { metodo: "PUT", corpo });
+}
+
 export function atualizarStatusPromocao(promocaoId: number, ativa: boolean) {
   return requisitar<Promocao>(`/promocoes/${promocaoId}/status`, {
     metodo: "PATCH",
     corpo: { ativa },
   });
+}
+
+export function excluirPromocao(promocaoId: number) {
+  return requisitar<void>(`/promocoes/${promocaoId}`, { metodo: "DELETE" });
 }
 
 export function cadastrarAdicional(corpo: AdicionalCriar) {
@@ -501,6 +551,10 @@ export function simularItemProduto(
 
 export function finalizarVenda(corpo: VendaCriar) {
   return requisitar<Venda>("/pdv/vendas", { metodo: "POST", corpo });
+}
+
+export function simularPromocoesVenda(corpo: { itens: ItemVendaCriar[] }) {
+  return requisitar<PromocoesVendaSimulada>("/pdv/promocoes/simular", { metodo: "POST", corpo });
 }
 
 export function listarVendas() {

@@ -33,6 +33,38 @@ function formatCurrency(value: number | string) {
   }).format(Number(value));
 }
 
+function formatCurrencyCompact(value: number | string) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 0,
+  }).format(Number(value));
+}
+
+function parseApiDate(value: string) {
+  const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/.test(value);
+  return new Date(hasTimezone ? value : `${value}Z`);
+}
+
+function localDateKey(date: Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function localHour(date: Date) {
+  return Number(
+    new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      hour: "2-digit",
+      hourCycle: "h23",
+    }).format(date)
+  );
+}
+
 export function DashboardPage() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [vendas, setVendas] = useState<Venda[]>([]);
@@ -64,18 +96,28 @@ export function DashboardPage() {
 
   const vendasPorHora = useMemo(() => {
     const agora = new Date();
-    const grupos = new Map<string, number>();
+    const hoje = localDateKey(agora);
+    const grupos = Array.from({ length: 24 }, (_, hora) => ({
+      hora: `${String(hora).padStart(2, "0")}h`,
+      valor: 0,
+    }));
 
     vendas
       .filter((venda) => venda.status === "CONCLUIDA")
-      .filter((venda) => new Date(venda.criado_em).toDateString() === agora.toDateString())
       .forEach((venda) => {
-        const hora = `${String(new Date(venda.criado_em).getHours()).padStart(2, "0")}h`;
-        grupos.set(hora, (grupos.get(hora) ?? 0) + Number(venda.total));
+        const criadoEm = parseApiDate(venda.criado_em);
+        if (localDateKey(criadoEm) !== hoje) return;
+
+        grupos[localHour(criadoEm)].valor += Number(venda.total);
       });
 
-    return Array.from(grupos.entries()).map(([hora, valor]) => ({ hora, valor }));
+    return grupos.some((grupo) => grupo.valor > 0) ? grupos : [];
   }, [vendas]);
+
+  const horariosReferencia = useMemo(
+    () => vendasPorHora.filter((_, index) => index % 4 === 0).map((grupo) => grupo.hora),
+    [vendasPorHora]
+  );
 
   if (loading && !dashboard) {
     return (
@@ -144,20 +186,36 @@ export function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Vendas por Hora</CardTitle>
-            <CardDescription>Movimento real do dia</CardDescription>
+            <CardDescription>Faturamento por horario do dia</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
               {vendasPorHora.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={vendasPorHora}>
-                    <XAxis dataKey="hora" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                  <BarChart data={vendasPorHora} barCategoryGap="40%">
+                    <XAxis
+                      dataKey="hora"
+                      stroke="#888888"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      ticks={horariosReferencia}
+                    />
+                    <YAxis
+                      stroke="#888888"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={formatCurrencyCompact}
+                    />
                     <Tooltip
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           return (
                             <div className="rounded-lg border bg-background p-2 shadow-sm">
+                              <p className="text-xs text-muted-foreground">
+                                Horario: {payload[0].payload.hora}
+                              </p>
                               <p className="text-sm font-medium">
                                 {formatCurrency(payload[0].value as number)}
                               </p>
@@ -167,7 +225,12 @@ export function DashboardPage() {
                         return null;
                       }}
                     />
-                    <Bar dataKey="valor" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
+                    <Bar
+                      dataKey="valor"
+                      fill="var(--color-primary)"
+                      maxBarSize={16}
+                      radius={[3, 3, 0, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (

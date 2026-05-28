@@ -37,6 +37,7 @@ import {
   atualizarProduto,
   atualizarStatusProduto,
   cadastrarProduto,
+  excluirProduto,
   listarCategorias,
   listarInsumos,
   listarProdutos,
@@ -290,6 +291,19 @@ export function ProdutosPage() {
     }
   };
 
+  const handleExcluirProduto = async (produto: Produto) => {
+    if (!confirm(`Deseja realmente excluir o produto "${produto.nome}"?`)) return;
+
+    try {
+      await excluirProduto(produto.id);
+      setProdutos((prev) => prev.filter((item) => item.id !== produto.id));
+      setMensagem("Produto excluido com sucesso.");
+      window.dispatchEvent(new Event("foodflow:data-updated"));
+    } catch (falha) {
+      setMensagem(falha instanceof Error ? falha.message : "Nao foi possivel excluir o produto.");
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -396,14 +410,25 @@ export function ProdutosPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleOpenDialog(produto)}
-                          title="Editar produto"
-                        >
-                          <Pencil className="size-4" />
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleOpenDialog(produto)}
+                            title="Editar produto"
+                          >
+                            <Pencil className="size-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive"
+                            onClick={() => void handleExcluirProduto(produto)}
+                            title="Excluir produto"
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

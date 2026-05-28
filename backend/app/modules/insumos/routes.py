@@ -41,6 +41,7 @@ def listar_insumos(
 
 
 @router.put("/{insumo_id}", response_model=InsumoResponse)
+@router.patch("/{insumo_id}", response_model=InsumoResponse)
 def editar_insumo(
     insumo_id: int,
     dados: InsumoAtualizar,

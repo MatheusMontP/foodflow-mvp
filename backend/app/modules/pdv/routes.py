@@ -4,8 +4,15 @@ from sqlalchemy.orm import Session
 from app.database.session import obter_sessao
 from app.modules.auth.dependencies import exigir_papeis
 from app.modules.auth.models import PapelUsuario, Usuario
-from app.modules.pdv.schemas import CardapioPDVResponse, VendaCancelar, VendaCriar, VendaResponse
-from app.modules.pdv.service import cancelar_venda, finalizar_venda, obter_cardapio_pdv, obter_vendas
+from app.modules.pdv.schemas import (
+    CardapioPDVResponse,
+    PromocoesVendaSimuladaResponse,
+    PromocoesVendaSimular,
+    VendaCancelar,
+    VendaCriar,
+    VendaResponse,
+)
+from app.modules.pdv.service import cancelar_venda, finalizar_venda, obter_cardapio_pdv, obter_vendas, simular_promocoes_venda
 
 
 router = APIRouter(prefix="/pdv", tags=["PDV"])
@@ -26,6 +33,15 @@ def vender(
     usuario: Usuario = Depends(exigir_papeis(PapelUsuario.OWNER, PapelUsuario.MANAGER, PapelUsuario.CASHIER)),
 ):
     return finalizar_venda(sessao, dados, usuario.id)
+
+
+@router.post("/promocoes/simular", response_model=PromocoesVendaSimuladaResponse)
+def simular_promocoes(
+    dados: PromocoesVendaSimular,
+    sessao: Session = Depends(obter_sessao),
+    _: Usuario = Depends(exigir_papeis(PapelUsuario.OWNER, PapelUsuario.MANAGER, PapelUsuario.CASHIER)),
+):
+    return simular_promocoes_venda(sessao, dados)
 
 
 @router.get("/vendas", response_model=list[VendaResponse])

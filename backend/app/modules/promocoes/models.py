@@ -17,6 +17,7 @@ class EscopoPromocao(str, Enum):
 class TipoDesconto(str, Enum):
     PERCENTUAL = "PERCENTUAL"
     VALOR_FIXO = "VALOR_FIXO"
+    LEVE_PAGUE = "LEVE_PAGUE"
 
 
 class Promocao(Base):
@@ -27,6 +28,8 @@ class Promocao(Base):
     escopo: Mapped[EscopoPromocao] = mapped_column(SqlEnum(EscopoPromocao), nullable=False)
     tipo_desconto: Mapped[TipoDesconto] = mapped_column(SqlEnum(TipoDesconto), nullable=False)
     valor: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    quantidade_leve: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    quantidade_pague: Mapped[int | None] = mapped_column(Integer, nullable=True)
     produto_id: Mapped[int | None] = mapped_column(ForeignKey("produtos.id"), nullable=True)
     categoria_id: Mapped[int | None] = mapped_column(ForeignKey("categorias.id"), nullable=True)
     inicio_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
