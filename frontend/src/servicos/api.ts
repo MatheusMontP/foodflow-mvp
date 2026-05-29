@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8001/api";
+const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8003/api";
 
 type MetodoHttp = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -244,6 +244,7 @@ export type VendaCriar = {
   itens: ItemVendaCriar[];
   forma_pagamento: FormaPagamento;
   observacao?: string;
+  promocao_id_selecionada?: number;
 };
 
 export type ItemVenda = {
@@ -395,7 +396,19 @@ export type PromocoesVendaSimulada = {
   desconto_total: string;
   total: string;
   promocoes_resumo: string | null;
+  promocao_id_selecionada: number | null;
+  opcoes_promocao: OpcaoPromocaoVenda[];
   itens: ItemPromocaoVendaSimulada[];
+};
+
+export type OpcaoPromocaoVenda = {
+  promocao_id: number;
+  nome: string;
+  escopo: EscopoPromocao;
+  tipo_desconto: TipoDesconto;
+  desconto_total: string;
+  total: string;
+  resumo: string;
 };
 
 export type Categoria = {
@@ -553,7 +566,7 @@ export function finalizarVenda(corpo: VendaCriar) {
   return requisitar<Venda>("/pdv/vendas", { metodo: "POST", corpo });
 }
 
-export function simularPromocoesVenda(corpo: { itens: ItemVendaCriar[] }) {
+export function simularPromocoesVenda(corpo: { itens: ItemVendaCriar[]; promocao_id_selecionada?: number }) {
   return requisitar<PromocoesVendaSimulada>("/pdv/promocoes/simular", { metodo: "POST", corpo });
 }
 
@@ -622,6 +635,10 @@ export interface ItemRecomendacao {
   demanda_considerada: number;
   lucro_unitario: string;
   produto_nome?: string;
+  tipo_recomendacao?: "PRINCIPAL" | "COMPLEMENTO";
+  acao_sugerida?: string;
+  desconto_seguro_valor?: string;
+  desconto_seguro_percentual?: string;
 }
 
 export interface Recomendacao {
@@ -647,10 +664,14 @@ export function listarRecomendacoes() {
   return requisitar<Recomendacao[]>("/recomendacoes/");
 }
 
-export function gerarRecomendacao() {
+export function gerarRecomendacao(corpo?: {
+  capacidade_diaria?: number;
+  dias_analise_demanda?: number;
+  periodo_recomendado?: string;
+}) {
   return requisitar<Recomendacao>("/recomendacoes/gerar", {
     metodo: "POST",
-    corpo: {
+    corpo: corpo ?? {
       capacidade_diaria: 150,
       dias_analise_demanda: 7,
       periodo_recomendado: "Hoje"

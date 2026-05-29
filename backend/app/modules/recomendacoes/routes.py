@@ -1,4 +1,5 @@
 from typing import List
+from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -11,6 +12,7 @@ from app.modules.recomendacoes.service import RecomendacaoService
 
 router = APIRouter(prefix="/recomendacoes", tags=["Recomendações"])
 service = RecomendacaoService()
+CENTAVOS = Decimal("0.01")
 
 
 @router.post("/gerar", response_model=RecomendacaoResponse, status_code=status.HTTP_201_CREATED)
@@ -23,6 +25,7 @@ def gerar_recomendacao(
         recomendacao = service.gerar_recomendacao(db, parametros, current_user.id)
         # Hackzinho para o response schema retornar o nome do usuario, se necessario
         recomendacao.usuario_nome = current_user.nome
+        _enriquecer_itens(recomendacao.itens)
         return recomendacao
     except Exception as e:
         raise HTTPException(
@@ -42,9 +45,7 @@ def listar_recomendacoes(
     for rec in recs:
         if rec.usuario:
             rec.usuario_nome = rec.usuario.nome
-        for item in rec.itens:
-            if item.produto:
-                item.produto_nome = item.produto.nome
+        _enriquecer_itens(rec.itens)
     return recs
 
 
@@ -62,7 +63,57 @@ def obter_recomendacao(
         )
     if recomendacao.usuario:
         recomendacao.usuario_nome = recomendacao.usuario.nome
-    for item in recomendacao.itens:
+    _enriquecer_itens(recomendacao.itens)
+    return recomendacao
+
+
+def _enriquecer_itens(itens) -> None:
+    itens_ordenados = sorted(itens, key=lambda item: Decimal(item.lucro_unitario), reverse=True)
+    margens = [Decimal(item.lucro_unitario) for item in itens_ordenados]
+
+    for item in itens:
         if item.produto:
             item.produto_nome = item.produto.nome
-    return recomendacao
+
+        tipo = _tipo_recomendacao(item)
+        item.tipo_recomendacao = tipo
+        item.acao_sugerida = "Montar combo" if tipo == "COMPLEMENTO" else "Destacar no PDV"
+
+        margem_atual = Decimal(item.lucro_unitario)
+        maior_margem_concorrente = max(
+            (margem for margem in margens if margem < margem_atual),
+            default=Decimal("0"),
+        )
+        desconto_seguro = ((margem_atual - maior_margem_concorrente) * Decimal("0.90")).quantize(
+            CENTAVOS,
+            rounding=ROUND_HALF_UP,
+        )
+        if desconto_seguro < Decimal("0"):
+            desconto_seguro = Decimal("0")
+
+        preco_venda = Decimal(item.produto.preco_venda) if item.produto is not None else Decimal("0")
+        percentual = Decimal("0")
+        if preco_venda > Decimal("0") and desconto_seguro > Decimal("0"):
+            percentual = (desconto_seguro * Decimal("100") / preco_venda).quantize(
+                CENTAVOS,
+                rounding=ROUND_HALF_UP,
+            )
+
+        item.desconto_seguro_valor = desconto_seguro
+        item.desconto_seguro_percentual = percentual
+
+
+def _tipo_recomendacao(item) -> str:
+    produto = item.produto
+    if produto is None:
+        return "PRINCIPAL"
+
+    textos = [
+        produto.nome,
+        produto.categoria.nome if produto.categoria is not None else "",
+        produto.categoria.descricao if produto.categoria is not None and produto.categoria.descricao is not None else "",
+    ]
+    texto = " ".join(textos).lower()
+    if any(termo in texto for termo in ["batata", "porcao", "porção", "acompanhamento"]):
+        return "COMPLEMENTO"
+    return "PRINCIPAL"

@@ -28,6 +28,14 @@ UNIDADES_PADRAO = [
     ("bandeja", "bandeja"),
 ]
 
+CATEGORIAS_PADRAO = {
+    "lanches": ("Lanches", "Produtos principais preparados na cozinha"),
+    "combos": ("Combos", "Combinacoes de produto principal com complemento"),
+    "complementos": ("Complementos", "Batatas, porcoes e acompanhamentos"),
+    "bebidas": ("Bebidas", "Itens de revenda como refrigerantes, sucos e agua"),
+    "sobremesas": ("Sobremesas", "Doces, sorvetes e finalizadores"),
+}
+
 
 def criar_dados_iniciais(sessao: Session) -> None:
     unidades = {}
@@ -53,6 +61,7 @@ def criar_dados_iniciais(sessao: Session) -> None:
     categorias = _criar_categorias_demo(sessao)
     insumos = _criar_insumos_demo(sessao, unidades, usuarios["owner"].id)
     _criar_produtos_demo(sessao, categorias, insumos, unidades)
+    _alinhar_produtos_demo(sessao, categorias)
 
     sessao.commit()
 
@@ -103,19 +112,16 @@ def _criar_usuarios_demo(sessao: Session) -> dict[str, Usuario]:
 
 
 def _criar_categorias_demo(sessao: Session) -> dict[str, Categoria]:
-    dados = {
-        "lanches": ("Lanches", "Hamburgueres e sanduiches"),
-        "porcoes": ("Porcoes", "Porcoes e acompanhamentos"),
-        "bebidas": ("Bebidas", "Bebidas geladas"),
-    }
     categorias = {}
 
-    for chave, (nome, descricao) in dados.items():
+    for chave, (nome, descricao) in CATEGORIAS_PADRAO.items():
         categoria = sessao.scalar(select(Categoria).where(Categoria.nome == nome))
         if categoria is None:
             categoria = Categoria(nome=nome, descricao=descricao, ativo=True)
             sessao.add(categoria)
             sessao.flush()
+        elif categoria.descricao != descricao:
+            categoria.descricao = descricao
         categorias[chave] = categoria
 
     return categorias
@@ -205,7 +211,7 @@ def _criar_produtos_demo(
         (
             "Batata Frita G",
             "Porcao grande de batata frita",
-            categorias["porcoes"].id,
+            categorias["complementos"].id,
             Decimal("22.90"),
             18,
             [
@@ -257,6 +263,16 @@ def _criar_produtos_demo(
 
         produto.custo_ficha_tecnica = custo.quantize(Decimal("0.01"))
         produto.margem_estimada = (preco - produto.custo_ficha_tecnica).quantize(Decimal("0.01"))
+
+
+def _alinhar_produtos_demo(sessao: Session, categorias: dict[str, Categoria]) -> None:
+    produto = sessao.scalar(select(Produto).where(Produto.nome == "Batata Frita G"))
+    if produto is not None:
+        produto.categoria_id = categorias["complementos"].id
+
+    coca = sessao.scalar(select(Produto).where(Produto.nome == "Coca-Cola Lata"))
+    if coca is not None:
+        coca.categoria_id = categorias["bebidas"].id
 
 
 def _converter_custo_demo(insumo: Insumo, quantidade: Decimal, sigla_unidade_item: str) -> Decimal:

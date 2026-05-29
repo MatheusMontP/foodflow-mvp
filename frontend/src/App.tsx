@@ -11,6 +11,7 @@ import { EstoquePage } from "@/pages/EstoquePage";
 import { PromocoesPage } from "@/pages/PromocoesPage";
 import { RelatoriosPage } from "@/pages/RelatoriosPage";
 import { UsuariosPage } from "@/pages/UsuariosPage";
+import { RecomendacoesPage } from "@/pages/RecomendacoesPage";
 
 export type Page =
   | "dashboard"
@@ -20,6 +21,7 @@ export type Page =
   | "insumos"
   | "estoque"
   | "promocoes"
+  | "recomendacoes"
   | "relatorios"
   | "usuarios";
 
@@ -47,6 +49,8 @@ function App() {
         return <EstoquePage />;
       case "promocoes":
         return <PromocoesPage />;
+      case "recomendacoes":
+        return <RecomendacoesPage />;
       case "relatorios":
         return <RelatoriosPage />;
       case "usuarios":

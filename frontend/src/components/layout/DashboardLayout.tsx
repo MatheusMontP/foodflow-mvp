@@ -12,6 +12,7 @@ import {
   Tag,
   BarChart3,
   Users,
+  ClipboardCheck,
   LogOut,
   Menu,
   X,
@@ -39,6 +40,7 @@ const navItems: NavItem[] = [
   { id: "insumos", label: "Insumos", icon: Utensils },
   { id: "estoque", label: "Estoque", icon: Warehouse },
   { id: "promocoes", label: "Promoções", icon: Tag },
+  { id: "recomendacoes", label: "Recomendações", icon: ClipboardCheck },
   { id: "relatorios", label: "Relatórios", icon: BarChart3 },
   { id: "usuarios", label: "Usuários", icon: Users },
 ];

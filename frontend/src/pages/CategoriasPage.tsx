@@ -20,10 +20,11 @@ import { Plus, Pencil, Trash2, FolderOpen } from "lucide-react";
 import type { Categoria } from "@/types";
 
 const categoriasIniciais: Categoria[] = [
-  { id: 1, nome: "Lanches", descricao: "Hambúrgueres e sanduíches", ativa: true, ordem: 1 },
-  { id: 2, nome: "Porções", descricao: "Batatas, onion rings e mais", ativa: true, ordem: 2 },
-  { id: 3, nome: "Bebidas", descricao: "Refrigerantes, sucos e água", ativa: true, ordem: 3 },
-  { id: 4, nome: "Sobremesas", descricao: "Milk shakes e sorvetes", ativa: true, ordem: 4 },
+  { id: 1, nome: "Lanches", descricao: "Produtos principais preparados na cozinha", ativa: true, ordem: 1 },
+  { id: 2, nome: "Combos", descricao: "Produto principal com complemento", ativa: true, ordem: 2 },
+  { id: 3, nome: "Complementos", descricao: "Batatas, porcoes e acompanhamentos", ativa: true, ordem: 3 },
+  { id: 4, nome: "Bebidas", descricao: "Itens de revenda, como refrigerantes e sucos", ativa: true, ordem: 4 },
+  { id: 5, nome: "Sobremesas", descricao: "Doces, sorvetes e finalizadores", ativa: true, ordem: 5 },
 ];
 
 export function CategoriasPage() {
@@ -103,7 +104,7 @@ export function CategoriasPage() {
                 <div>
                   <CardTitle className="text-base">{categoria.nome}</CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    {categoria.descricao || "Sem descrição"}
+                    {categoria.descricao || "Sem descricao"}
                   </p>
                 </div>
               </div>
@@ -159,7 +160,7 @@ export function CategoriasPage() {
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="descricao">Descrição</Label>
+              <Label htmlFor="descricao">Descricao</Label>
               <Input
                 id="descricao"
                 value={formData.descricao}

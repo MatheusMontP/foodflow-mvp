@@ -19,6 +19,10 @@ class ItemRecomendacaoResponse(ItemRecomendacaoBase):
     recomendacao_id: int
     criado_em: datetime
     produto_nome: str | None = None
+    tipo_recomendacao: str | None = None
+    acao_sugerida: str | None = None
+    desconto_seguro_valor: Decimal | None = None
+    desconto_seguro_percentual: Decimal | None = None
 
     class Config:
         from_attributes = True

@@ -27,6 +27,8 @@ import {
   QrCode,
   ShoppingCart,
   Loader2,
+  Percent,
+  Check,
 } from "lucide-react";
 import type { Categoria, Produto } from "@/types";
 import {
@@ -90,6 +92,7 @@ export function PDVPage() {
   const [finalizando, setFinalizando] = useState<FormaPagamento | null>(null);
   const [formaPagamentoPendente, setFormaPagamentoPendente] = useState<FormaPagamento | null>(null);
   const [simulacaoPromocao, setSimulacaoPromocao] = useState<PromocoesVendaSimulada | null>(null);
+  const [promocaoSelecionadaId, setPromocaoSelecionadaId] = useState<number | null>(null);
   const [simulandoPromocao, setSimulandoPromocao] = useState(false);
   const [erroSimulacaoPromocao, setErroSimulacaoPromocao] = useState("");
   const [mensagem, setMensagem] = useState("");
@@ -129,10 +132,36 @@ export function PDVPage() {
   const descontoSimulado = Number(simulacaoPromocao?.desconto_total ?? 0);
   const totalSimulado = simulacaoPromocao ? Number(simulacaoPromocao.total) : getTotal();
   const promocaoAplicada = descontoSimulado > 0;
+  const opcoesPromocao = simulacaoPromocao?.opcoes_promocao ?? [];
+  const precisaEscolherPromocao = opcoesPromocao.length > 1 && promocaoSelecionadaId === null;
+  const carrinhoAssinatura = useMemo(
+    () =>
+      items
+        .map((item) => `${item.produto.id}:${item.quantidade}:${item.adicionais.length}:${item.observacao ?? ""}`)
+        .join("|"),
+    [items]
+  );
+
+  function montarItensVenda() {
+    return items.map((item) => ({
+      produto_id: item.produto.id,
+      quantidade: item.quantidade,
+      adicional_ids: item.adicionais.flatMap((adicional) =>
+        Array.from({ length: adicional.quantidade }, () => adicional.adicional.id)
+      ),
+      remocao_item_ficha_tecnica_ids: [],
+      observacao: item.observacao,
+    }));
+  }
+
+  useEffect(() => {
+    setPromocaoSelecionadaId(null);
+  }, [carrinhoAssinatura]);
 
   useEffect(() => {
     if (items.length === 0) {
       setSimulacaoPromocao(null);
+      setPromocaoSelecionadaId(null);
       setSimulandoPromocao(false);
       setErroSimulacaoPromocao("");
       return;
@@ -142,15 +171,8 @@ export function PDVPage() {
     setSimulandoPromocao(true);
 
     simularPromocoesVenda({
-      itens: items.map((item) => ({
-        produto_id: item.produto.id,
-        quantidade: item.quantidade,
-        adicional_ids: item.adicionais.flatMap((adicional) =>
-          Array.from({ length: adicional.quantidade }, () => adicional.adicional.id)
-        ),
-        remocao_item_ficha_tecnica_ids: [],
-        observacao: item.observacao,
-      })),
+      itens: montarItensVenda(),
+      promocao_id_selecionada: promocaoSelecionadaId ?? undefined,
     })
       .then((simulacao) => {
         if (ativo) {
@@ -177,7 +199,7 @@ export function PDVPage() {
     return () => {
       ativo = false;
     };
-  }, [items]);
+  }, [items, promocaoSelecionadaId]);
 
   function handleSolicitarPagamento(formaPagamento: FormaPagamento) {
     if (items.length === 0) {
@@ -201,27 +223,65 @@ export function PDVPage() {
     try {
       const venda = await finalizarVenda({
         forma_pagamento: formaPagamento,
-        itens: items.map((item) => ({
-          produto_id: item.produto.id,
-          quantidade: item.quantidade,
-          adicional_ids: item.adicionais.flatMap((adicional) =>
-            Array.from({ length: adicional.quantidade }, () => adicional.adicional.id)
-          ),
-          remocao_item_ficha_tecnica_ids: [],
-          observacao: item.observacao,
-        })),
+        itens: montarItensVenda(),
+        promocao_id_selecionada: promocaoSelecionadaId ?? undefined,
       });
 
       clearCart();
       await carregarCardapio();
       window.dispatchEvent(new Event("foodflow:data-updated"));
       setFormaPagamentoPendente(null);
+      setPromocaoSelecionadaId(null);
       setMensagem(`Venda ${venda.numero_pedido} finalizada. Total: ${formatCurrency(Number(venda.total))}`);
     } catch (erro) {
       setMensagem(erro instanceof Error ? erro.message : "Nao foi possivel finalizar a venda.");
     } finally {
       setFinalizando(null);
     }
+  }
+
+  function renderOpcoesPromocao() {
+    if (opcoesPromocao.length <= 1) return null;
+
+    return (
+      <div className="rounded-md border p-3">
+        <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+          <Percent className="size-4 text-primary" />
+          Escolha a promocao
+        </div>
+        <div className="flex flex-col gap-2">
+          {opcoesPromocao.map((opcao) => {
+            const selecionada = promocaoSelecionadaId === opcao.promocao_id;
+            return (
+              <button
+                key={opcao.promocao_id}
+                type="button"
+                onClick={() => setPromocaoSelecionadaId(opcao.promocao_id)}
+                className={`flex items-center justify-between gap-3 rounded-md border p-3 text-left text-sm transition-colors ${
+                  selecionada ? "border-primary bg-primary/5" : "hover:border-primary/60"
+                }`}
+              >
+                <div>
+                  <p className="font-medium">{opcao.nome}</p>
+                  <p className="text-xs text-muted-foreground">{opcao.resumo}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="font-medium text-primary">
+                    -{formatCurrency(Number(opcao.desconto_total))}
+                  </span>
+                  {selecionada && <Check className="size-4 text-primary" />}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        {precisaEscolherPromocao && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Existem promocoes validas para esta venda. Selecione uma para aplicar o desconto.
+          </p>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -362,6 +422,7 @@ export function PDVPage() {
 
           <div className="border-t pt-4">
             <div className="mb-4 flex flex-col gap-2">
+              {renderOpcoesPromocao()}
               {promocaoAplicada && (
                 <>
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -473,6 +534,8 @@ export function PDVPage() {
               </div>
             </div>
 
+            {renderOpcoesPromocao()}
+
             <div className="flex flex-col gap-2 border-t pt-4">
               {promocaoAplicada && (
                 <>
@@ -512,7 +575,7 @@ export function PDVPage() {
                   ? void handleFinalizarVenda(formaPagamentoPendente)
                   : undefined
               }
-              disabled={finalizando !== null || formaPagamentoPendente === null}
+              disabled={finalizando !== null || formaPagamentoPendente === null || precisaEscolherPromocao}
             >
               {finalizando !== null && <Loader2 className="size-4 animate-spin" />}
               Confirmar venda

@@ -1,5 +1,9 @@
 Write-Host "Iniciando FoodFlow MVP..." -ForegroundColor Green
 
+$ProjectRoot = $PSScriptRoot
+$BackendPath = Join-Path $ProjectRoot "backend"
+$FrontendPath = Join-Path $ProjectRoot "frontend"
+
 function Stop-PortProcess {
     param([int]$Port)
 
@@ -22,13 +26,15 @@ function Stop-PortProcess {
 Write-Host "Limpando servidores antigos..." -ForegroundColor Cyan
 Stop-PortProcess -Port 8000
 Stop-PortProcess -Port 8001
+Stop-PortProcess -Port 8002
+Stop-PortProcess -Port 8003
 Stop-PortProcess -Port 5173
 Stop-PortProcess -Port 5174
 
 Write-Host "Iniciando Back-end (FastAPI)..." -ForegroundColor Cyan
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd backend; .\.venv\Scripts\uvicorn.exe app.main:app --reload --port 8001"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$BackendPath'; .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8003"
 
 Write-Host "Iniciando Front-end (Vite/React)..." -ForegroundColor Cyan
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd frontend; npm run dev"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$FrontendPath'; npm run dev"
 
 Write-Host "Servidores sendo iniciados em novas abas/janelas! Pode fechar esta se desejar." -ForegroundColor Green

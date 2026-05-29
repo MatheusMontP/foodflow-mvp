@@ -38,6 +38,18 @@ class PromocaoAplicada:
     item_indice: int | None = None
 
 
+@dataclass
+class OpcaoPromocaoVenda:
+    promocao_id: int
+    nome: str
+    escopo: EscopoPromocao
+    tipo_desconto: TipoDesconto
+    desconto_total: Decimal
+    total: Decimal
+    resumo: str
+    aplicadas: list[PromocaoAplicada]
+
+
 def criar_promocao(sessao: Session, dados: PromocaoCriar) -> Promocao:
     nome = dados.nome.strip()
     if buscar_promocao_por_nome(sessao, nome) is not None:
@@ -117,32 +129,63 @@ def calcular_promocoes_venda(
     sessao: Session,
     itens: list[ItemPromocaoContexto],
     subtotal: Decimal,
-) -> tuple[list[Decimal], Decimal, list[PromocaoAplicada]]:
+    promocao_id_selecionada: int | None = None,
+) -> tuple[list[Decimal], Decimal, list[PromocaoAplicada], list[OpcaoPromocaoVenda]]:
     promocoes = [promocao for promocao in listar_promocoes(sessao) if _promocao_vigente(promocao)]
+    return calcular_promocoes_venda_com_opcao(promocoes, itens, subtotal, promocao_id_selecionada)
+
+
+def calcular_promocoes_venda_com_opcao(
+    promocoes: list[Promocao],
+    itens: list[ItemPromocaoContexto],
+    subtotal: Decimal,
+    promocao_id_selecionada: int | None = None,
+) -> tuple[list[Decimal], Decimal, list[PromocaoAplicada], list[OpcaoPromocaoVenda]]:
+    opcoes = _montar_opcoes_promocao(promocoes, itens, subtotal)
     descontos_itens = [Decimal("0") for _ in itens]
+
+    if promocao_id_selecionada is not None:
+        opcao = next((item for item in opcoes if item.promocao_id == promocao_id_selecionada), None)
+        if opcao is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Promocao selecionada nao esta disponivel para esta venda.",
+            )
+        return _descontos_por_promocoes(opcao.aplicadas, itens, subtotal), opcao.desconto_total, opcao.aplicadas, opcoes
+
+    if len(opcoes) == 1:
+        opcao = opcoes[0]
+        return _descontos_por_promocoes(opcao.aplicadas, itens, subtotal), opcao.desconto_total, opcao.aplicadas, opcoes
+
+    if len(opcoes) > 1:
+        return descontos_itens, Decimal("0"), [], opcoes
+
+    return descontos_itens, Decimal("0"), [], opcoes
+
+
+def _calcular_promocoes_venda_automatico(
+    promocoes: list[Promocao],
+    itens: list[ItemPromocaoContexto],
+    subtotal: Decimal,
+) -> list[PromocaoAplicada]:
     aplicadas: list[PromocaoAplicada] = []
 
     produto_aplicadas = _aplicar_promocoes_item(promocoes, itens, EscopoPromocao.PRODUTO)
     if produto_aplicadas:
-        for aplicada in produto_aplicadas:
-            descontos_itens[aplicada.item_indice or 0] += aplicada.desconto_total
-        return descontos_itens, sum(descontos_itens, Decimal("0")), produto_aplicadas
+        return produto_aplicadas
 
     categoria_aplicadas = _aplicar_promocoes_item(promocoes, itens, EscopoPromocao.CATEGORIA)
     if categoria_aplicadas:
-        for aplicada in categoria_aplicadas:
-            descontos_itens[aplicada.item_indice or 0] += aplicada.desconto_total
-        return descontos_itens, sum(descontos_itens, Decimal("0")), categoria_aplicadas
+        return categoria_aplicadas
 
     venda_promocao = _melhor_promocao_venda(promocoes, subtotal)
     if venda_promocao is None:
-        return descontos_itens, Decimal("0"), aplicadas
+        return aplicadas
 
     desconto_venda = _calcular_desconto(venda_promocao, subtotal)
     if desconto_venda <= Decimal("0"):
-        return descontos_itens, Decimal("0"), aplicadas
+        return aplicadas
 
-    descontos_itens = _ratear_desconto(desconto_venda, [item.subtotal for item in itens], subtotal)
     aplicadas.append(
         PromocaoAplicada(
             promocao_id=venda_promocao.id,
@@ -151,7 +194,55 @@ def calcular_promocoes_venda(
             desconto_total=desconto_venda,
         )
     )
-    return descontos_itens, desconto_venda, aplicadas
+    return aplicadas
+
+
+def _montar_opcoes_promocao(
+    promocoes: list[Promocao],
+    itens: list[ItemPromocaoContexto],
+    subtotal: Decimal,
+) -> list[OpcaoPromocaoVenda]:
+    opcoes: list[OpcaoPromocaoVenda] = []
+
+    for promocao in promocoes:
+        aplicadas = _calcular_promocoes_venda_automatico([promocao], itens, subtotal)
+        desconto_total = sum((aplicada.desconto_total for aplicada in aplicadas), Decimal("0"))
+        if desconto_total <= Decimal("0"):
+            continue
+
+        opcoes.append(
+            OpcaoPromocaoVenda(
+                promocao_id=promocao.id,
+                nome=promocao.nome,
+                escopo=promocao.escopo,
+                tipo_desconto=promocao.tipo_desconto,
+                desconto_total=desconto_total.quantize(CENTAVOS, rounding=ROUND_HALF_UP),
+                total=(subtotal - desconto_total).quantize(CENTAVOS, rounding=ROUND_HALF_UP),
+                resumo=_resumo_opcao_promocao(promocao, desconto_total),
+                aplicadas=aplicadas,
+            )
+        )
+
+    return sorted(opcoes, key=lambda opcao: (-opcao.desconto_total, opcao.nome.lower()))
+
+
+def _descontos_por_promocoes(
+    aplicadas: list[PromocaoAplicada],
+    itens: list[ItemPromocaoContexto],
+    subtotal: Decimal,
+) -> list[Decimal]:
+    descontos_itens = [Decimal("0") for _ in itens]
+    desconto_venda = sum(
+        (aplicada.desconto_total for aplicada in aplicadas if aplicada.item_indice is None),
+        Decimal("0"),
+    )
+    if desconto_venda > Decimal("0"):
+        descontos_itens = _ratear_desconto(desconto_venda, [item.subtotal for item in itens], subtotal)
+
+    for aplicada in aplicadas:
+        if aplicada.item_indice is not None:
+            descontos_itens[aplicada.item_indice] += aplicada.desconto_total
+    return descontos_itens
 
 
 def _aplicar_promocoes_item(
@@ -277,6 +368,17 @@ def _calcular_desconto(promocao: Promocao, base: Decimal, quantidade: int | None
     else:
         desconto = Decimal(promocao.valor)
     return min(desconto, base).quantize(CENTAVOS, rounding=ROUND_HALF_UP)
+
+
+def _resumo_opcao_promocao(promocao: Promocao, desconto_total: Decimal) -> str:
+    if promocao.tipo_desconto == TipoDesconto.PERCENTUAL:
+        regra = f"{Decimal(promocao.valor):g}%"
+    elif promocao.tipo_desconto == TipoDesconto.LEVE_PAGUE:
+        regra = f"Leve {promocao.quantidade_leve} pague {promocao.quantidade_pague}"
+    else:
+        regra = f"R$ {Decimal(promocao.valor):.2f}"
+
+    return f"{promocao.nome} ({regra}) - economia R$ {desconto_total.quantize(CENTAVOS, rounding=ROUND_HALF_UP):.2f}"
 
 
 def _calcular_desconto_leve_pague(promocao: Promocao, base: Decimal, quantidade: int | None) -> Decimal:

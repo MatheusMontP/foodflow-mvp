@@ -85,10 +85,11 @@ def simular_promocoes_venda(sessao: Session, dados: PromocoesVendaSimular) -> di
             }
         )
 
-    descontos_itens, desconto_total, promocoes_aplicadas = calcular_promocoes_venda(
+    descontos_itens, desconto_total, promocoes_aplicadas, opcoes_promocao = calcular_promocoes_venda(
         sessao,
         contextos_promocao,
         subtotal,
+        dados.promocao_id_selecionada,
     )
 
     itens = []
@@ -110,6 +111,8 @@ def simular_promocoes_venda(sessao: Session, dados: PromocoesVendaSimular) -> di
         "desconto_total": desconto_total.quantize(CENTAVOS, rounding=ROUND_HALF_UP),
         "total": total,
         "promocoes_resumo": _resumo_promocoes_venda(promocoes_aplicadas),
+        "promocao_id_selecionada": _promocao_id_aplicada(promocoes_aplicadas),
+        "opcoes_promocao": _opcoes_promocao_response(opcoes_promocao),
         "itens": itens,
     }
 
@@ -173,11 +176,17 @@ def finalizar_venda(sessao: Session, dados: VendaCriar, usuario_id: int | None) 
         )
 
     _validar_estoque_agregado(sessao, baixas_agregadas)
-    descontos_itens, desconto_total, promocoes_aplicadas = calcular_promocoes_venda(
+    descontos_itens, desconto_total, promocoes_aplicadas, opcoes_promocao = calcular_promocoes_venda(
         sessao,
         contextos_promocao,
         subtotal,
+        dados.promocao_id_selecionada,
     )
+    if dados.promocao_id_selecionada is None and len(opcoes_promocao) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Escolha qual promocao aplicar antes de finalizar a venda.",
+        )
 
     for indice, item in enumerate(itens_venda):
         desconto_item = descontos_itens[indice].quantize(CENTAVOS, rounding=ROUND_HALF_UP)
@@ -336,3 +345,24 @@ def _resumo_promocoes_venda(promocoes_aplicadas) -> str | None:
         return None
     nomes = [promocao.nome for promocao in promocoes_aplicadas]
     return ", ".join(dict.fromkeys(nomes))
+
+
+def _promocao_id_aplicada(promocoes_aplicadas) -> int | None:
+    if not promocoes_aplicadas:
+        return None
+    return promocoes_aplicadas[0].promocao_id
+
+
+def _opcoes_promocao_response(opcoes_promocao) -> list[dict]:
+    return [
+        {
+            "promocao_id": opcao.promocao_id,
+            "nome": opcao.nome,
+            "escopo": opcao.escopo,
+            "tipo_desconto": opcao.tipo_desconto,
+            "desconto_total": opcao.desconto_total,
+            "total": opcao.total,
+            "resumo": opcao.resumo,
+        }
+        for opcao in opcoes_promocao
+    ]
